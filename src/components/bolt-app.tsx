@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import {
   Check,
+  Swords,
   ChevronRight,
   Crown,
   Download,
@@ -66,7 +67,9 @@ import { formatClock } from "@/game/share";
 import {
   addChallenge,
   challengeFromLink,
+  doneChallenges,
   pendingChallenges,
+  type Challenge,
   resolveChallenge,
   type Score,
 } from "@/game/challenges";
@@ -85,7 +88,7 @@ function shortDay(date: string) {
   return m && d ? `${d}/${m}` : date;
 }
 
-type Phase = "home" | "levels" | "play" | "shop" | "friends";
+type Phase = "home" | "levels" | "play" | "shop" | "friends" | "challenges";
 type Modal = null | "clear" | "over" | "hints";
 type Hud = {
   left: number;
@@ -279,6 +282,9 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   }, [save.friends]);
   const topFriendLevel = save.friends.reduce((m, f) => Math.max(m, f.level), 0);
   const homeNudge = nudge(save.unlocked, save.friends);
+  const pendingList = pendingChallenges(save.challenges);
+  const doneList = doneChallenges(save.challenges);
+  const pendingCount = pendingList.length;
 
   useEffect(() => {
     let loaded = loadSave();
@@ -696,6 +702,17 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     });
   }
 
+  function openChallenges() {
+    unlockAudio();
+    playUi();
+    setPhase("challenges");
+  }
+
+  function playChallenge(ch: Challenge) {
+    const spec = decodeSpec(ch.code);
+    if (spec) begin("challenge", spec, 0, ch.key);
+  }
+
   /** Rimozione in due tocchi: il primo chiede conferma, il secondo rimuove. */
   function removeFriend(id: string) {
     unlockAudio();
@@ -1021,14 +1038,26 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                 {save.friends.length ? <span className="tabular-nums">{save.friends.length}</span> : null}
               </button>
             </div>
-            <button
-              type="button"
-              onClick={invite}
-              className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface font-display text-base font-semibold"
-            >
-              <UserPlus className="size-4 text-accent" />
-              {t.invite}
-            </button>
+            <div className="bolt-home-pair">
+              <button
+                type="button"
+                onClick={openChallenges}
+                aria-label={pendingCount ? `${t.challengesTitle}: ${t.pendingBadge(pendingCount)}` : t.challengesTitle}
+                className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface font-display text-base font-semibold"
+              >
+                <Swords className="size-4 text-accent" />
+                {t.challengesTitle}
+                {pendingCount ? <span className="bolt-badge">{pendingCount}</span> : null}
+              </button>
+              <button
+                type="button"
+                onClick={invite}
+                className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface font-display text-base font-semibold"
+              >
+                <UserPlus className="size-4 text-accent" />
+                {t.invite}
+              </button>
+            </div>
           </div>
 
           {showInstall ? (
@@ -1220,6 +1249,78 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                   {t.invite}
                 </button>
               </div>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {phase === "challenges" ? (
+        <div className="safe-top safe-bot flex min-h-0 flex-1 flex-col">
+          <header className="flex h-14 items-center gap-2">
+            <IconButton label={t.back} onClick={goHome}>
+              <ChevronLeft className="size-5" />
+            </IconButton>
+            <h2 className="font-display text-xl font-extrabold">{t.challengesTitle}</h2>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+            <h3 className="bolt-shop-title">
+              {t.toPlay}
+              {pendingCount ? <span className="bolt-badge ml-2">{pendingCount}</span> : null}
+            </h3>
+            {pendingList.length ? (
+              <ul className="bolt-friend-list">
+                {pendingList.map((ch) => (
+                  <li key={ch.key} className="bolt-friend-row">
+                    <span className="bolt-avatar is-big" style={{ background: avatarColor(ch.from.id || ch.from.name) }} aria-hidden="true">
+                      {[...ch.from.name][0]?.toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-display font-extrabold">{ch.from.name}</p>
+                      <p className="text-sm text-muted">{t.challengeLabel(ch.level, shortDay(ch.date))}</p>
+                      <p className="text-sm tabular-nums">
+                        <span className="text-muted">{t.toBeat} </span>
+                        {formatClock(ch.theirs.ms / 1000)} · {ch.theirs.mistakes} {t.errShort}
+                      </p>
+                    </div>
+                    <button type="button" className="bolt-row-play" onClick={() => playChallenge(ch)}>
+                      <Play className="size-4 fill-current" />
+                      {t.play}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-pretty text-muted">{t.noPending}</p>
+            )}
+
+            <h3 className="bolt-shop-title">{t.played}</h3>
+            {doneList.length ? (
+              <ul className="bolt-friend-list">
+                {doneList.map((ch) => (
+                  <li key={ch.key} className="bolt-friend-row">
+                    <span className="bolt-avatar is-big" style={{ background: avatarColor(ch.from.id || ch.from.name) }} aria-hidden="true">
+                      {[...ch.from.name][0]?.toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-display font-extrabold">{ch.from.name}</p>
+                      <p className="text-sm text-muted">{t.challengeLabel(ch.level, shortDay(ch.date))}</p>
+                      <p className="bolt-score-pair text-sm tabular-nums">
+                        <span>
+                          {t.you} {formatClock(ch.mine!.ms / 1000)} · {ch.mine!.mistakes} {t.errShort}
+                        </span>
+                        <span className="text-muted">
+                          {ch.from.name} {formatClock(ch.theirs.ms / 1000)} · {ch.theirs.mistakes} {t.errShort}
+                        </span>
+                      </p>
+                    </div>
+                    <span className={`bolt-outcome is-${ch.outcome}`}>
+                      {ch.outcome === "win" ? t.won : ch.outcome === "loss" ? t.lost : t.tiedShort}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-pretty text-muted">{t.noDone}</p>
             )}
           </div>
         </div>
