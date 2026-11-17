@@ -1,6 +1,6 @@
 import type { ArrowStyle } from "./cosmetics";
 import { VX, VY, type Dir } from "./logic";
-import { flyDistance, flyFade, flyStretch } from "./motion";
+import { flyDistance, flyFade, flyPop, flyStretch } from "./motion";
 import type { Sim } from "./sim";
 
 export type Palette = {
@@ -414,7 +414,7 @@ export function drawBoard(ctx: CanvasRenderingContext2D, sim: Sim, palette: Pale
       ctx,
       sx0 + VX[f.dir] * pos * cell,
       sy0 + VY[f.dir] * pos * cell,
-      cell * fade.scale,
+      cell * fade.scale * flyPop(t, sim.reduce),
       f.dir,
       color,
       flyStretch(t, sim.reduce),

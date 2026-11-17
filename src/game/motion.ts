@@ -44,6 +44,17 @@ export function flyStretch(t: number, reduce: boolean) {
   return 1 + 0.42 * speed;
 }
 
+/**
+ * Mini rimbalzo al tocco: durante la carica la freccia si gonfia di un 12% e torna normale,
+ * così il dito "sente" la freccia prima che parta. 1 = dimensione normale.
+ */
+export function flyPop(t: number, reduce: boolean) {
+  if (reduce) return 1;
+  const u = Math.min(1, Math.max(0, t));
+  if (u >= WINDUP * 1.6) return 1;
+  return 1 + 0.12 * Math.sin((u / (WINDUP * 1.6)) * Math.PI);
+}
+
 /** Opacità e scala: piene dentro la griglia, poi sfumano oltre il bordo. */
 export function flyFade(pos: number, dist: number) {
   const out = Math.min(1, Math.max(0, (pos - dist + 0.35) / OVERSHOOT));

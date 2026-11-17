@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { OVERSHOOT, crossTime, flyDistance, flyDuration, flyFade, flyStretch } from "../src/game/motion";
+import { OVERSHOOT, crossTime, flyDistance, flyDuration, flyFade, flyPop, flyStretch } from "../src/game/motion";
 
 test("volo delle frecce: carica breve, poi accelerazione continua fino oltre il bordo", () => {
   for (const dist of [1, 3, 8]) {
@@ -36,4 +36,16 @@ test("deformazione, dissolvenza e durata restano in limiti gradevoli", () => {
   assert.ok(flyDuration(1, false) < flyDuration(8, false));
   assert.ok(flyDuration(8, false) < 0.55, "anche i voli lunghi restano rapidi");
   assert.equal(flyStretch(0.5, true), 1, "con movimento ridotto niente deformazioni");
+});
+
+test("mini rimbalzo al tocco: si gonfia poco e torna esattamente a riposo", () => {
+  let max = 1;
+  for (let t = 0; t <= 1; t += 0.005) {
+    const p = flyPop(t, false);
+    assert.ok(p >= 1 && p <= 1.121);
+    max = Math.max(max, p);
+  }
+  assert.ok(max > 1.1, "il rimbalzo si vede");
+  assert.equal(flyPop(0.5, false), 1, "dopo la carica torna a riposo");
+  assert.equal(flyPop(0.05, true), 1, "con movimento ridotto niente rimbalzo");
 });
