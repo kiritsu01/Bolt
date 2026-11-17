@@ -189,6 +189,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   /** Sfida ricevuta che si sta giocando (chiave in save.challenges). */
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [save, setSave] = useState<Save>(defaultSave);
+  const [saveReady, setSaveReady] = useState(false);
   /** Richiesta del nome prima di un invito o di una condivisione (null = nessuna). */
   const [askName, setAskName] = useState<null | ((name: string) => void)>(null);
   const friendDoneRef = useRef(false);
@@ -377,6 +378,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
       }
     }
     setSave(loaded);
+    setSaveReady(true);
     setSoundEnabled(loaded.sound);
     document.documentElement.lang = loaded.lang;
   }, []);
@@ -1018,7 +1020,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                 className="bolt-coin-pill"
               >
                 <Coins className="size-4 text-accent" />
-                <CoinCount value={save.coins} />
+                <CoinCount value={save.coins} ready={saveReady} />
               </button>
               <button
                 type="button"
@@ -1553,7 +1555,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
             <h2 className="font-display text-xl font-extrabold">{t.shop}</h2>
             <p className="bolt-coin-pill ml-auto" aria-label={`${save.coins} ${t.coins}`}>
               <Coins className="size-4 text-accent" />
-              <CoinCount value={save.coins} />
+              <CoinCount value={save.coins} ready={saveReady} />
             </p>
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto pb-4">
@@ -2300,14 +2302,24 @@ const STAR_STEP_MS = 360;
  * Contatore monete: quando il valore cambia conta fino al nuovo numero (mezzo secondo)
  * con un piccolo rimbalzo, così si "vede" il guadagno tornando in home o comprando.
  */
-function CoinCount({ value }: { value: number }) {
-  const [shown, setShown] = useState(value);
+let lastCoinsShown: number | null = null;
+
+function CoinCount({ value, ready }: { value: number; ready: boolean }) {
+  // Si parte dall'ultimo valore mostrato (anche se il contatore è stato smontato durante la partita).
+  const [shown, setShown] = useState(lastCoinsShown ?? value);
   const [bump, setBump] = useState(0);
-  const fromRef = useRef(value);
   useEffect(() => {
-    const from = fromRef.current;
-    fromRef.current = value;
-    if (from === value) return;
+    // Prima che il salvataggio sia caricato il valore è quello iniziale: niente animazione.
+    if (!ready) {
+      setShown(value);
+      return;
+    }
+    const from = lastCoinsShown ?? value;
+    lastCoinsShown = value;
+    if (from === value) {
+      setShown(value);
+      return;
+    }
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) {
       setShown(value);
@@ -2324,7 +2336,7 @@ function CoinCount({ value }: { value: number }) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [value]);
+  }, [value, ready]);
   return (
     <span key={bump} className={bump ? "tabular-nums bolt-coin-bump" : "tabular-nums"}>
       {shown}
