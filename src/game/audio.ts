@@ -55,6 +55,14 @@ export function playExit(combo: number) {
   tone(base * wobble, 0.11, "triangle", 0.12, base * wobble * 1.85);
 }
 
+export function playHit() {
+  tone(300, 0.07, "square", 0.05, 520);
+}
+
+export function playUnlock() {
+  window.setTimeout(() => tone(1180, 0.08, "sine", 0.06, 1560), 40);
+}
+
 export function playMiss() {
   tone(160, 0.13, "square", 0.05, 70);
 }

@@ -1,0 +1,162 @@
+/* Stili delle novità: mappa dei capitoli, presentazione delle meccaniche. */
+
+.bolt-btn-sub {
+  font-size: 0.875rem;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+/* --- Mappa per capitoli --------------------------------------------------- */
+.bolt-map {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-top: 0.25rem;
+}
+.bolt-chapter {
+  position: relative;
+  scroll-margin-top: 0.5rem;
+}
+.bolt-chapter::before {
+  /* Il "sentiero" che collega i capitoli. */
+  content: "";
+  position: absolute;
+  left: 21px;
+  top: 44px;
+  bottom: -1.25rem;
+  width: 2px;
+  background: var(--color-line);
+}
+.bolt-chapter:last-child::before {
+  display: none;
+}
+.bolt-chapter-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+}
+.bolt-chapter-node {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.25rem;
+  box-shadow: 0 0 0 4px var(--color-bg);
+}
+.bolt-chapter.is-locked .bolt-chapter-node {
+  background: var(--color-surface);
+  color: var(--color-muted);
+  border: 2px solid var(--color-line);
+}
+.bolt-chapter.is-locked h3 {
+  color: var(--color-muted);
+}
+.bolt-level-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+  padding-left: 56px;
+}
+.bolt-level {
+  display: flex;
+  min-height: 52px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+  color: var(--color-fg);
+}
+.bolt-level:disabled {
+  opacity: 0.35;
+}
+.bolt-level.is-current {
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+@media (max-width: 360px) {
+  .bolt-level-grid {
+    padding-left: 0;
+  }
+}
+
+/* --- Presentazione del capitolo (un tocco) -------------------------------- */
+.bolt-intro {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: max(1.5rem, env(safe-area-inset-top)) 1.5rem max(1.5rem, env(safe-area-inset-bottom));
+  overflow-y: auto;
+  text-align: center;
+  color: var(--color-fg);
+  background:
+    radial-gradient(120% 60% at 50% 0%, color-mix(in srgb, var(--color-accent) 22%, transparent), transparent 70%),
+    var(--color-bg);
+  cursor: pointer;
+  animation: bolt-rise 280ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.bolt-intro-kicker {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+.bolt-intro-art {
+  width: min(128px, 28vh);
+  height: min(128px, 28vh);
+  flex: none;
+}
+.bolt-intro-title {
+  font-family: var(--font-display);
+  font-size: 2.5rem;
+  line-height: 1;
+  font-weight: 800;
+}
+.bolt-intro-text {
+  max-width: 20rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--color-muted);
+  text-wrap: pretty;
+}
+.bolt-intro-cta {
+  margin-top: 0.5rem;
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  padding: 0 1.5rem;
+  border-radius: 1rem;
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+@media (max-height: 480px) {
+  .bolt-intro {
+    gap: 0.4rem;
+  }
+  .bolt-intro-title {
+    font-size: 1.75rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bolt-intro {
+    animation-duration: 1ms;
+  }
+}

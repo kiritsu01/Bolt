@@ -1,7 +1,7 @@
 import { todayKey, yesterdayKey } from "./logic";
 
 export type Save = {
-  version: 1;
+  version: 2;
   unlocked: number;
   stars: Record<string, number>;
   bestRush: number;
@@ -11,12 +11,18 @@ export type Save = {
   sound: boolean;
   lang: "it" | "en";
   clears: number;
+  /** Capitoli di cui è già stata mostrata la schermata di presentazione. */
+  seenChapters: number[];
 };
 
-const KEY = "bolt-save-v1";
+/** Formato della versione 1 (chiave "bolt-save-v1"). */
+type SaveV1 = Omit<Save, "version" | "seenChapters"> & { version: 1 };
+
+const KEY = "bolt-save-v2";
+const KEY_V1 = "bolt-save-v1";
 
 export const defaultSave = (): Save => ({
-  version: 1,
+  version: 2,
   unlocked: 1,
   stars: {},
   bestRush: 0,
@@ -26,15 +32,61 @@ export const defaultSave = (): Save => ({
   sound: true,
   lang: "it",
   clears: 0,
+  seenChapters: [],
 });
+
+/** Converte un salvataggio della versione 1: tiene tutto e aggiunge i campi nuovi. */
+export function migrateV1(old: Partial<SaveV1>): Save {
+  const base = defaultSave();
+  return {
+    ...base,
+    unlocked: typeof old.unlocked === "number" ? old.unlocked : base.unlocked,
+    stars: old.stars ?? {},
+    bestRush: old.bestRush ?? 0,
+    streak: old.streak ?? 0,
+    lastDay: old.lastDay ?? "",
+    daily: old.daily ?? {},
+    sound: old.sound ?? true,
+    lang: old.lang === "en" ? "en" : "it",
+    clears: old.clears ?? 0,
+  };
+}
+
+/** Normalizza un salvataggio v2 letto dal disco: i campi mancanti prendono il valore iniziale. */
+export function normalize(parsed: Partial<Save>): Save {
+  const base = defaultSave();
+  return {
+    ...base,
+    ...parsed,
+    version: 2,
+    stars: parsed.stars ?? {},
+    daily: parsed.daily ?? {},
+    seenChapters: Array.isArray(parsed.seenChapters) ? parsed.seenChapters : [],
+  };
+}
+
+/** Interpreta un salvataggio grezzo di qualsiasi versione conosciuta. */
+export function parseSave(raw: unknown): Save | null {
+  if (!raw || typeof raw !== "object") return null;
+  const v = (raw as { version?: unknown }).version;
+  if (v === 2) return normalize(raw as Partial<Save>);
+  if (v === 1) return migrateV1(raw as Partial<SaveV1>);
+  return null;
+}
 
 export function loadSave(): Save {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return defaultSave();
-    const parsed = JSON.parse(raw) as Partial<Save>;
-    if (parsed.version !== 1) return defaultSave();
-    return { ...defaultSave(), ...parsed, stars: parsed.stars ?? {}, daily: parsed.daily ?? {} };
+    if (raw) return parseSave(JSON.parse(raw)) ?? defaultSave();
+    const old = localStorage.getItem(KEY_V1);
+    if (old) {
+      const migrated = parseSave(JSON.parse(old));
+      if (migrated) {
+        writeSave(migrated);
+        return migrated;
+      }
+    }
+    return defaultSave();
   } catch {
     return defaultSave();
   }
@@ -44,7 +96,7 @@ export function writeSave(save: Save) {
   try {
     localStorage.setItem(KEY, JSON.stringify(save));
   } catch {
-    /* private mode / quota â keep playing in memory */
+    /* private mode / quota: si continua a giocare in memoria */
   }
 }
 

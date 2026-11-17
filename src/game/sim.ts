@@ -1,4 +1,4 @@
-import { playClear, playExit, playMiss } from "./audio";
+import { playClear, playExit, playHit, playMiss, playUnlock } from "./audio";
 import {
   type Arrow,
   type Board,
@@ -6,9 +6,10 @@ import {
   type Spec,
   VX,
   VY,
+  applyTap,
   canExit,
   exitLen,
-  freeArrows,
+  hintArrow,
   makeBoard,
   rayCells,
   rushSpec,
@@ -66,7 +67,12 @@ export type Sim = {
   mistakes: number;
   hintsUsed: number;
   undos: number;
-  undo: Arrow[];
+  /** Istantanee della griglia prima di ogni tocco riuscito (per Annulla). */
+  undo: Array<{ arrows: Arrow[]; exited: number | null }>;
+  /** Animazioni brevi: rotazioni (spin), sblocchi (lock), colpi sulle doppie (hit). */
+  pulses: Array<{ id: number; kind: "spin" | "lock" | "hit"; age: number; dur: number }>;
+  /** Nessuna freccia può uscire ma la griglia non è vuota (possibile con le rotanti). */
+  stuck: boolean;
   timeLeft: number;
   deadline: number;
   paused: boolean;
@@ -125,6 +131,8 @@ export function freshSim(args: {
     hintsUsed: 0,
     undos: 0,
     undo: [],
+    pulses: [],
+    stuck: false,
     timeLeft: 45,
     deadline: 0,
     paused: false,
@@ -134,7 +142,7 @@ export function freshSim(args: {
     over: false,
     resolved: false,
     startedAt: performance.now(),
-    coach: args.mode === "campaign" && args.level <= 2,
+    coach: args.mode === "campaign" && (args.level <= 2 || (args.level > 15 && (args.level - 1) % 15 === 0)),
     reduce: args.reduce,
     layout: { ox: 16, oy: 16, cell: 56 },
     hudAcc: 0,
@@ -185,13 +193,34 @@ function spawnExit(sim: Sim, f: Flyer) {
   }
 }
 
+function cellBurst(sim: Sim, arrow: Arrow, n: number, accent: boolean) {
+  const { ox, oy, cell } = sim.layout;
+  const x = ox + (arrow.x + 0.5) * cell;
+  const y = oy + (arrow.y + 0.5) * cell;
+  for (let i = 0; i < n; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const sp = 40 + Math.random() * 80;
+    sim.particles.push({
+      x,
+      y,
+      vx: Math.cos(ang) * sp,
+      vy: Math.sin(ang) * sp,
+      age: 0,
+      dur: 0.3 + Math.random() * 0.2,
+      size: 2 + Math.random() * 2.5,
+      accent,
+    });
+  }
+}
+
 export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
   if (sim.over || sim.resolved) return;
   if (!sim.board.arrows.some((a) => a.id === arrow.id)) return;
-  const cells = rayCells(sim.board, arrow);
-  const ok = canExit(sim.board, arrow);
+  const res = applyTap(sim.board, arrow);
+  const cells = arrow.lock ? [{ x: arrow.x, y: arrow.y, block: true }] : rayCells(sim.board, arrow);
+  const ok = res.kind !== "miss";
   sim.flashes.push({ cells, bad: !ok, age: 0, dur: ok ? 0.26 : 0.34 });
-  if (!ok) {
+  if (res.kind === "miss") {
     sim.mistakes += 1;
     sim.combo = 0;
     sim.log.push(0);
@@ -201,18 +230,32 @@ export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
     vibrate([10, 28, 14]);
     return;
   }
+  sim.undo.push({ arrows: sim.board.arrows, exited: res.kind === "exit" ? arrow.id : null });
+  sim.board = res.board;
+  sim.coach = false;
+  if (res.kind === "hit") {
+    // Freccia doppia: primo tocco. Tiene viva la combo senza aumentarla.
+    if (sim.combo > 0) sim.lastExit = now;
+    sim.pulses.push({ id: arrow.id, kind: "hit", age: 0, dur: 0.3 });
+    cellBurst(sim, arrow, 10, true);
+    playHit();
+    vibrate(6);
+    return;
+  }
   const combo = now - sim.lastExit < 1400 && sim.lastExit > 0 ? sim.combo + 1 : 1;
   sim.combo = combo;
   sim.maxCombo = Math.max(sim.maxCombo, combo);
   sim.log.push(combo >= 3 ? 2 : 1);
   sim.lastExit = now;
-  sim.coach = false;
   sim.hintId = sim.hintId === arrow.id ? null : sim.hintId;
+  for (const id of res.turned) sim.pulses.push({ id, kind: "spin", age: 0, dur: sim.reduce ? 0.01 : 0.2 });
+  for (const id of res.unlocked) {
+    sim.pulses.push({ id, kind: "lock", age: 0, dur: 0.35 });
+    const a = res.board.arrows.find((o) => o.id === id);
+    if (a) cellBurst(sim, a, 6, true);
+  }
+  if (res.turned.length) sim.hintId = null;
   const dist = exitLen(arrow.x, arrow.y, arrow.dir, sim.board.w, sim.board.h);
-  sim.board = {
-    ...sim.board,
-    arrows: sim.board.arrows.filter((a) => a.id !== arrow.id),
-  };
   sim.flyers.push({
     id: arrow.id,
     x: arrow.x,
@@ -223,7 +266,6 @@ export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
     dist,
     combo,
   });
-  sim.undo.push(arrow);
   if (sim.mode === "rush") sim.score += 100 * combo;
   sim.floaters.push({
     x: arrow.x + 0.5,
@@ -233,6 +275,7 @@ export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
     dur: 0.65,
   });
   playExit(combo);
+  if (res.unlocked.length) playUnlock();
   vibrate(combo > 3 ? 16 : 8);
 }
 
@@ -244,21 +287,22 @@ export function tapCell(sim: Sim, x: number, y: number, now: number) {
 }
 
 export function useHint(sim: Sim) {
-  if (sim.over || sim.resolved || sim.mode === "rush") return;
-  const free = freeArrows(sim.board);
-  if (!free.length) return;
-  const pick = free[Math.floor(Math.random() * free.length)]!;
+  if (sim.over || sim.resolved || sim.mode === "rush") return false;
+  const pick = hintArrow(sim.board);
+  if (!pick) return false;
   sim.hintId = pick.id;
   sim.hintsUsed += 1;
+  return true;
 }
 
 export function useUndo(sim: Sim) {
   if (sim.over || sim.resolved || sim.mode === "rush") return;
-  const arrow = sim.undo.pop();
-  if (!arrow) return;
-  if (sim.board.arrows.some((a) => a.x === arrow.x && a.y === arrow.y)) return;
-  sim.board = { ...sim.board, arrows: [...sim.board.arrows, arrow] };
-  sim.flyers = sim.flyers.filter((f) => f.id !== arrow.id);
+  const snap = sim.undo.pop();
+  if (!snap) return;
+  sim.board = { ...sim.board, arrows: snap.arrows };
+  if (snap.exited != null) sim.flyers = sim.flyers.filter((f) => f.id !== snap.exited);
+  sim.pulses = [];
+  sim.hintId = null;
   sim.undos += 1;
   sim.combo = 0;
 }
@@ -298,6 +342,10 @@ export function step(sim: Sim, dt: number, now: number, emit: Emit) {
   sim.floaters = sim.floaters.filter((f) => f.age < f.dur);
   for (const f of sim.flashes) f.age += dt;
   sim.flashes = sim.flashes.filter((f) => f.age < f.dur);
+  for (const p of sim.pulses) p.age += dt;
+  sim.pulses = sim.pulses.filter((p) => p.age < p.dur);
+  sim.stuck =
+    sim.board.arrows.length > 0 && sim.flyers.length === 0 && !sim.board.arrows.some((a) => canExit(sim.board, a));
 
   const quiet = sim.board.arrows.length === 0 && sim.flyers.length === 0;
   if (quiet && !sim.over && !sim.resolved) {
@@ -311,6 +359,7 @@ export function step(sim: Sim, dt: number, now: number, emit: Emit) {
       sim.spec = spec;
       sim.board = makeBoard(spec);
       sim.undo = [];
+      sim.pulses = [];
       sim.hintId = null;
       sim.mistakes = 0;
       burst(sim, spec.w / 2, spec.h / 2, true);

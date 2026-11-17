@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import {
   ChevronLeft,
+  Lock,
   Flame,
   Lightbulb,
   Play,
@@ -16,8 +17,11 @@ import { playUi, resumeAudio, setSoundEnabled, unlockAudio } from "@/game/audio"
 import { drawBoard, fitCanvas, layoutBoard, readPalette, type Palette } from "@/game/draw";
 import { copy, type Lang } from "@/game/i18n";
 import { emojiRow, shareMessage } from "@/game/share";
+import { CHAPTERS } from "@/game/chapters";
 import {
   campaignSpec,
+  chapterIndex,
+  CHAPTER_SIZE,
   dailySpec,
   decodeSpec,
   encodeSpec,
@@ -40,6 +44,7 @@ type Hud = {
   score: number;
   coach: boolean;
   canUndo: boolean;
+  stuck: boolean;
 };
 type Result = {
   stars: number;
@@ -124,13 +129,18 @@ export function BoltApp({ code }: { code?: string }) {
     score: 0,
     coach: false,
     canUndo: false,
+    stuck: false,
   });
+  /** Capitolo di cui mostrare la schermata di presentazione (null = nessuna). */
+  const [intro, setIntro] = useState<number | null>(null);
 
   const [hype, setHype] = useState<{ key: number; combo: number; word: string } | null>(null);
   const [confetti, setConfetti] = useState(0);
   const lastHypeRef = useRef(0);
 
   const simRef = useRef<Sim | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const currentChapterRef = useRef<HTMLElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const paletteRef = useRef<Palette>(FALLBACK);
   const modalRef = useRef<Modal>(null);
@@ -207,6 +217,7 @@ export function BoltApp({ code }: { code?: string }) {
       score: sim.score,
       coach: sim.coach,
       canUndo: sim.undo.length > 0 && !sim.resolved,
+      stuck: sim.stuck && !sim.resolved,
     });
   };
 
@@ -284,9 +295,22 @@ export function BoltApp({ code }: { code?: string }) {
     });
   };
 
+  // Colore d'accento del capitolo: in partita (campagna) e nella sua presentazione.
+  const chapterNow = meta?.mode === "campaign" ? chapterIndex(meta.level) : null;
+  const accent =
+    intro != null ? CHAPTERS[intro]!.accent : phase === "play" && chapterNow != null ? CHAPTERS[chapterNow]!.accent : null;
+
+  useEffect(() => {
+    paletteRef.current = readPalette(rootRef.current ?? undefined);
+  }, [phase, accent]);
+
+  useEffect(() => {
+    if (phase !== "levels") return;
+    currentChapterRef.current?.scrollIntoView({ block: "start" });
+  }, [phase]);
+
   useEffect(() => {
     if (phase !== "play") return;
-    paletteRef.current = readPalette();
     let raf = 0;
     let last = performance.now();
     const loop = (now: number) => {
@@ -322,7 +346,7 @@ export function BoltApp({ code }: { code?: string }) {
         setModal(null);
         return;
       }
-      if (phase !== "play" || !sim || modalRef.current) return;
+      if (phase !== "play" || !sim || modalRef.current || intro != null) return;
       if (e.code === "KeyZ") {
         useUndo(sim);
         publish(sim);
@@ -351,6 +375,8 @@ export function BoltApp({ code }: { code?: string }) {
     });
     simRef.current = sim;
     setMeta({ mode, level, spec });
+    const ch = mode === "campaign" ? chapterIndex(level) : 0;
+    setIntro(ch > 0 && !save.seenChapters.includes(ch) ? ch : null);
     setResult(null);
     setModal(null);
     publish(sim);
@@ -408,6 +434,20 @@ export function BoltApp({ code }: { code?: string }) {
     }
   }
 
+  function closeIntro() {
+    if (intro == null) return;
+    unlockAudio();
+    playUi();
+    const ch = intro;
+    setIntro(null);
+    setSave((prev) => {
+      if (prev.seenChapters.includes(ch)) return prev;
+      const next = { ...prev, seenChapters: [...prev.seenChapters, ch] };
+      writeSave(next);
+      return next;
+    });
+  }
+
   function toggleSound() {
     unlockAudio();
     setSave((prev) => {
@@ -445,7 +485,11 @@ export function BoltApp({ code }: { code?: string }) {
   };
 
   return (
-    <div className="safe-x relative mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden">
+    <div
+      ref={rootRef}
+      className="safe-x relative mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden"
+      style={accent ? ({ "--color-accent": accent } as CSSProperties) : undefined}
+    >
       {phase === "home" ? (
         <div className="safe-top safe-bot flex min-h-0 flex-1 flex-col overflow-y-auto">
           <div className="flex items-center justify-between py-3">
@@ -504,6 +548,7 @@ export function BoltApp({ code }: { code?: string }) {
             >
               <Play className="size-5 fill-current" />
               {t.continue} {save.unlocked}
+              <span className="bolt-btn-sub">· {t.chapters[chapterIndex(save.unlocked)]!.name}</span>
             </button>
             <button
               type="button"
@@ -558,29 +603,71 @@ export function BoltApp({ code }: { code?: string }) {
               <ChevronLeft className="size-5" />
             </IconButton>
             <h2 className="font-display text-xl font-extrabold">{t.levels}</h2>
+            <p className="ml-auto flex items-center gap-1 text-sm text-muted tabular-nums">
+              <Star className="size-4 fill-accent text-accent" />
+              {totalStars}
+            </p>
           </header>
-          <div className="grid flex-1 grid-cols-4 content-start gap-2 overflow-y-auto pb-4">
-            {Array.from({ length: Math.max(save.unlocked + 1, 8) }, (_, i) => i + 1).map((level) => {
-              const locked = level > save.unlocked;
-              const stars = save.stars[String(level)] ?? 0;
+          <div className="bolt-map min-h-0 flex-1 overflow-y-auto pb-4">
+            {CHAPTERS.map((ch) => {
+              const info = t.chapters[ch.index]!;
+              const last = ch.last ?? Math.max(ch.first + CHAPTER_SIZE - 1, Math.ceil((save.unlocked + 1) / 5) * 5);
+              const levels = Array.from({ length: last - ch.first + 1 }, (_, k) => ch.first + k);
+              const open = save.unlocked >= ch.first;
+              const earned = levels.reduce((sum, l) => sum + (save.stars[String(l)] ?? 0), 0);
+              const current = chapterIndex(save.unlocked) === ch.index;
               return (
-                <button
-                  key={level}
-                  type="button"
-                  disabled={locked}
-                  onClick={() => begin("campaign", campaignSpec(level), level)}
-                  className="flex h-16 flex-col items-center justify-center rounded-2xl border border-line bg-surface disabled:opacity-40"
+                <section
+                  key={ch.index}
+                  ref={current ? currentChapterRef : undefined}
+                  className={open ? "bolt-chapter" : "bolt-chapter is-locked"}
+                  style={ch.accent ? ({ "--color-accent": ch.accent } as CSSProperties) : undefined}
                 >
-                  <span className="font-display text-lg font-extrabold tabular-nums">{level}</span>
-                  <span className="mt-1 flex gap-1">
-                    {[0, 1, 2].map((i) => (
-                      <span
-                        key={i}
-                        className={i < stars ? "size-1.5 rounded-full bg-accent" : "size-1.5 rounded-full bg-line"}
-                      />
-                    ))}
-                  </span>
-                </button>
+                  <div className="bolt-chapter-head">
+                    <span className="bolt-chapter-node">{open ? ch.index + 1 : <Lock className="size-4" />}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold tracking-widest text-muted uppercase">
+                        {t.chapter} {ch.index + 1} · {ch.last ? `${ch.first}–${ch.last}` : `${ch.first}+ ${t.endless}`}
+                      </p>
+                      <h3 className="truncate font-display text-xl font-extrabold">{info.name}</h3>
+                      <p className="text-sm text-muted">{info.short}</p>
+                    </div>
+                    <p className="flex items-center gap-1 text-sm text-muted tabular-nums">
+                      <Star className="size-4 fill-accent text-accent" />
+                      {earned}
+                      {ch.last ? `/${levels.length * 3}` : ""}
+                    </p>
+                  </div>
+                  <div className="bolt-level-grid">
+                    {levels.map((level) => {
+                      const locked = level > save.unlocked;
+                      const stars = save.stars[String(level)] ?? 0;
+                      return (
+                        <button
+                          key={level}
+                          type="button"
+                          disabled={locked}
+                          onClick={() => begin("campaign", campaignSpec(level), level)}
+                          className={
+                            level === save.unlocked
+                              ? "bolt-level is-current"
+                              : "bolt-level"
+                          }
+                        >
+                          <span className="font-display text-lg font-extrabold tabular-nums">{level}</span>
+                          <span className="mt-1 flex gap-1">
+                            {[0, 1, 2].map((i) => (
+                              <span
+                                key={i}
+                                className={i < stars ? "size-1.5 rounded-full bg-accent" : "size-1.5 rounded-full bg-line"}
+                              />
+                            ))}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
               );
             })}
           </div>
@@ -619,9 +706,15 @@ export function BoltApp({ code }: { code?: string }) {
             )}
           </header>
 
-          {hud.coach ? (
+          {hud.stuck ? (
+            <p className="pb-2 text-center text-sm font-semibold text-pretty text-accent">{t.stuck}</p>
+          ) : hud.coach ? (
             <p className="pb-2 text-center text-sm text-pretty text-muted">
-              {meta.level === 2 && meta.mode === "campaign" ? t.coach2 : t.coach}
+              {meta.mode === "campaign" && meta.level > CHAPTER_SIZE
+                ? t.chapterCoach[chapterIndex(meta.level)]
+                : meta.level === 2 && meta.mode === "campaign"
+                  ? t.coach2
+                  : t.coach}
             </p>
           ) : null}
 
@@ -790,6 +883,18 @@ export function BoltApp({ code }: { code?: string }) {
         </div>
       ) : null}
 
+      {intro != null && phase === "play" ? (
+        <button type="button" className="bolt-intro" onClick={closeIntro} autoFocus>
+          <span className="bolt-intro-kicker">
+            {t.chapter} {intro + 1} · {t.newMechanic}
+          </span>
+          <MechIllustration mech={intro} />
+          <span className="bolt-intro-title">{t.chapters[intro]!.name}</span>
+          <span className="bolt-intro-text">{t.chapters[intro]!.intro}</span>
+          <span className="bolt-intro-cta">{t.tapToStart}</span>
+        </button>
+      ) : null}
+
       {toast ? (
         <p className="absolute bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-full bg-fg px-4 py-2 text-sm font-semibold text-bg">
           {toast}
@@ -829,5 +934,38 @@ function IconButton({
     >
       {children}
     </button>
+  );
+}
+
+/** Disegno della meccanica per la schermata di presentazione del capitolo. */
+function MechIllustration({ mech }: { mech: number }) {
+  const arrow = "M14 27h18v-9l14 14-14 14v-9H14z";
+  return (
+    <svg className="bolt-intro-art" viewBox="0 0 64 64" aria-hidden="true">
+      <rect x="2" y="2" width="60" height="60" rx="16" fill="var(--color-surface)" />
+      {mech === 3 ? (
+        <rect x="7" y="7" width="50" height="50" rx="12" fill="none" stroke="var(--color-accent)" strokeWidth="3.5" />
+      ) : null}
+      {mech === 2 || mech === 4 ? (
+        <g fill="none" stroke="var(--color-accent)" strokeWidth="3" strokeLinecap="round">
+          <path d="M14 20a22 22 0 0 1 22-10" />
+          <path d="M50 44a22 22 0 0 1-22 10" />
+        </g>
+      ) : null}
+      <path
+        d={arrow}
+        transform="translate(0 0)"
+        fill="var(--color-fg)"
+        opacity={mech === 1 ? 0.45 : 1}
+        strokeLinejoin="round"
+      />
+      {mech === 1 || mech === 4 ? (
+        <g>
+          <circle cx="48" cy="16" r="10" fill="var(--color-accent)" />
+          <rect x="43" y="15" width="10" height="7" rx="1.5" fill="var(--color-bg)" />
+          <path d="M45 15v-2a3 3 0 0 1 6 0v2" fill="none" stroke="var(--color-bg)" strokeWidth="2" />
+        </g>
+      ) : null}
+    </svg>
   );
 }

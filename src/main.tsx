@@ -6,6 +6,7 @@ import "@fontsource/outfit/latin-400.css";
 import "@fontsource/outfit/latin-500.css";
 import "./styles.css";
 import "./effects.css";
+import "./features.css";
 import { BoltApp } from "@/components/bolt-app";
 
 // Il codice di una sfida arriva nel link come ?c=CODICE (lo crea "Sfida un amico").

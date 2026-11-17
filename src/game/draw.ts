@@ -12,8 +12,10 @@ export type Palette = {
 
 const ROT = [-Math.PI / 2, 0, Math.PI / 2, Math.PI] as const;
 
-export function readPalette(): Palette {
-  const s = getComputedStyle(document.documentElement);
+const easeOut = (t: number) => 1 - (1 - Math.min(1, Math.max(0, t))) ** 3;
+
+export function readPalette(el: Element = document.documentElement): Palette {
+  const s = getComputedStyle(el);
   const g = (name: string, fallback: string) => s.getPropertyValue(name).trim() || fallback;
   return {
     fg: g("--color-fg", "#f3efe4"),
@@ -59,11 +61,12 @@ function drawArrow(
   fill: string,
   stretch: number,
   alpha: number,
+  turn = 0,
 ) {
   const s = cell * 0.72;
   ctx.save();
   ctx.translate(cx, cy);
-  ctx.rotate(ROT[dir]);
+  ctx.rotate(ROT[dir] + turn);
   ctx.scale(stretch, 1 / stretch);
   ctx.globalAlpha = alpha;
   ctx.beginPath();
@@ -86,6 +89,75 @@ function drawArrow(
   ctx.lineWidth = Math.max(2.5, cell * 0.07);
   ctx.stroke();
   ctx.fill();
+  ctx.restore();
+}
+
+/** Lucchetto piccolo nell'angolo in alto a destra della casella. */
+function drawLock(ctx: CanvasRenderingContext2D, x: number, y: number, cell: number, palette: Palette, open: number) {
+  const r = Math.max(7, cell * 0.17);
+  const cx = x + cell - r - 3;
+  const cy = y + r + 3;
+  ctx.save();
+  ctx.fillStyle = palette.accent;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.fill();
+  const bw = r * 0.95;
+  const bh = r * 0.7;
+  ctx.fillStyle = palette.bg;
+  ctx.beginPath();
+  ctx.roundRect(cx - bw / 2, cy - bh * 0.15, bw, bh, 1.5);
+  ctx.fill();
+  ctx.strokeStyle = palette.bg;
+  ctx.lineWidth = Math.max(1.4, r * 0.18);
+  ctx.beginPath();
+  ctx.arc(cx, cy - bh * 0.15 - open * r * 0.35, bw * 0.32, Math.PI, 0);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Anello con freccetta: indica che la freccia ruota di 90° in senso orario. */
+function drawSpinRing(ctx: CanvasRenderingContext2D, cx: number, cy: number, cell: number, palette: Palette, phase: number) {
+  const r = cell * 0.43;
+  const start = -Math.PI * 0.85 + phase;
+  const end = start + Math.PI * 0.55;
+  ctx.save();
+  ctx.strokeStyle = palette.accent;
+  ctx.fillStyle = palette.accent;
+  ctx.lineWidth = Math.max(2, cell * 0.045);
+  ctx.lineCap = "round";
+  for (const off of [0, Math.PI]) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, start + off, end + off);
+    ctx.stroke();
+    const tip = end + off;
+    const tx = cx + Math.cos(tip) * r;
+    const ty = cy + Math.sin(tip) * r;
+    const hs = Math.max(4, cell * 0.08);
+    ctx.save();
+    ctx.translate(tx, ty);
+    ctx.rotate(tip + Math.PI / 2);
+    ctx.beginPath();
+    ctx.moveTo(hs, 0);
+    ctx.lineTo(-hs * 0.6, -hs * 0.8);
+    ctx.lineTo(-hs * 0.6, hs * 0.8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+/** Guscio della freccia doppia: cornice piena finché non viene colpita. */
+function drawShell(ctx: CanvasRenderingContext2D, x: number, y: number, cell: number, palette: Palette, crack: number) {
+  ctx.save();
+  ctx.strokeStyle = palette.accent;
+  ctx.lineWidth = Math.max(2.5, cell * 0.06);
+  ctx.globalAlpha = 1 - crack;
+  const inset = 4 + crack * 6;
+  ctx.beginPath();
+  ctx.roundRect(x + inset, y + inset, cell - inset * 2, cell - inset * 2, Math.min(12, cell * 0.22));
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -172,16 +244,33 @@ export function drawBoard(ctx: CanvasRenderingContext2D, sim: Sim, palette: Pale
       stretch = 1 + Math.sin(now / 380 + arrow.id) * 0.018;
     }
     const hinted = arrow.id === sim.hintId;
+    const cx = ox + (arrow.x + 0.5) * cell + oxb;
+    const cy = oy + (arrow.y + 0.5) * cell + oyb;
+    const spinPulse = sim.pulses.find((p) => p.id === arrow.id && p.kind === "spin");
+    const turn = spinPulse ? -(1 - easeOut(spinPulse.age / spinPulse.dur)) * (Math.PI / 2) : 0;
+    const hitPulse = sim.pulses.find((p) => p.id === arrow.id && p.kind === "hit");
+    const lockPulse = sim.pulses.find((p) => p.id === arrow.id && p.kind === "lock");
+    if ((arrow.hp ?? 1) > 1) drawShell(ctx, ox + arrow.x * cell, oy + arrow.y * cell, cell, palette, 0);
+    else if (hitPulse) drawShell(ctx, ox + arrow.x * cell, oy + arrow.y * cell, cell, palette, hitPulse.age / hitPulse.dur);
+    if (arrow.spin) drawSpinRing(ctx, cx, cy, cell, palette, turn + (sim.reduce ? 0 : now / 2400));
     drawArrow(
       ctx,
-      ox + (arrow.x + 0.5) * cell + oxb,
-      oy + (arrow.y + 0.5) * cell + oyb,
+      cx,
+      cy,
       cell,
       arrow.dir,
       hinted ? palette.accent : palette.fg,
       Math.max(0.7, stretch),
-      1,
+      arrow.lock ? 0.42 : 1,
+      turn,
     );
+    if (arrow.lock) drawLock(ctx, ox + arrow.x * cell, oy + arrow.y * cell, cell, palette, 0);
+    else if (lockPulse) {
+      ctx.save();
+      ctx.globalAlpha = 1 - lockPulse.age / lockPulse.dur;
+      drawLock(ctx, ox + arrow.x * cell, oy + arrow.y * cell, cell, palette, lockPulse.age / lockPulse.dur);
+      ctx.restore();
+    }
   }
 
   for (const f of sim.flyers) {

@@ -47,6 +47,41 @@ export const copy = {
     dailyDone: "Migliore di oggi",
     hype: ["Ottimo!", "Fantastico!", "Inarrestabile!", "Leggendario!"],
     newRecord: "Nuovo record!",
+    chapter: "Capitolo",
+    chapters: [
+      { name: "Scintilla", short: "Le basi", intro: "Fai uscire le frecce che hanno la corsia libera fino al bordo." },
+      {
+        name: "Lucchetti",
+        short: "Frecce bloccate",
+        intro: "Le frecce col lucchetto non si muovono. Si liberano quando esce una freccia accanto.",
+      },
+      {
+        name: "Vortice",
+        short: "Frecce che ruotano",
+        intro: "Le frecce con l'anello girano di 90° in senso orario ogni volta che esce una freccia accanto.",
+      },
+      {
+        name: "Doppio colpo",
+        short: "Frecce doppie",
+        intro: "Le frecce con la cornice vanno toccate due volte: il primo tocco rompe il guscio.",
+      },
+      {
+        name: "Tempesta",
+        short: "Tutto insieme",
+        intro: "Lucchetti, vortici e doppie si alternano a ogni livello. Fino a dove arrivi?",
+      },
+    ],
+    tapToStart: "Tocca per iniziare",
+    newMechanic: "Nuova meccanica",
+    chapterCoach: [
+      "",
+      "Il lucchetto si apre quando esce una freccia accanto.",
+      "Ogni uscita accanto fa ruotare le frecce con l'anello. Pensa all'ordine.",
+      "Le frecce con la cornice vogliono due tocchi.",
+      "",
+    ],
+    stuck: "Nessuna freccia può uscire. Annulla o riprova.",
+    endless: "senza fine",
     shareResult: "Condividi",
     shareCard: {
       daily: "Sfida di oggi",
@@ -105,6 +140,41 @@ export const copy = {
     dailyDone: "Today's best",
     hype: ["Great!", "Awesome!", "Unstoppable!", "Legendary!"],
     newRecord: "New record!",
+    chapter: "Chapter",
+    chapters: [
+      { name: "Spark", short: "The basics", intro: "Send out the arrows whose lane to the edge is clear." },
+      {
+        name: "Padlocks",
+        short: "Locked arrows",
+        intro: "Arrows with a padlock can't move. They unlock when a neighbouring arrow leaves.",
+      },
+      {
+        name: "Whirl",
+        short: "Turning arrows",
+        intro: "Arrows with a ring turn 90° clockwise every time a neighbouring arrow leaves.",
+      },
+      {
+        name: "Double tap",
+        short: "Double arrows",
+        intro: "Framed arrows need two taps: the first one cracks the shell.",
+      },
+      {
+        name: "Storm",
+        short: "All together",
+        intro: "Padlocks, whirls and doubles take turns, level after level. How far can you go?",
+      },
+    ],
+    tapToStart: "Tap to start",
+    newMechanic: "New mechanic",
+    chapterCoach: [
+      "",
+      "A padlock opens when a neighbouring arrow leaves.",
+      "Every exit next door turns the ringed arrows. Mind the order.",
+      "Framed arrows want two taps.",
+      "",
+    ],
+    stuck: "No arrow can leave. Undo or retry.",
+    endless: "endless",
     shareResult: "Share",
     shareCard: {
       daily: "Today's bolt",
