@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import {
   Check,
+  ChevronRight,
+  Crown,
   Download,
   UserPlus,
   Users,
@@ -55,6 +57,7 @@ import {
   encodeFriend,
   encodeVersus,
   mergeFriend,
+  nudge,
   ranking,
   versusWinner,
   type Friend,
@@ -263,6 +266,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     return map;
   }, [save.friends]);
   const topFriendLevel = save.friends.reduce((m, f) => Math.max(m, f.level), 0);
+  const homeNudge = nudge(save.unlocked, save.friends);
 
   useEffect(() => {
     let loaded = loadSave();
@@ -850,6 +854,28 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
             <Stat icon={<Star className="size-4 text-accent" />} label={t.stars} value={totalStars} />
             <Stat icon={<Timer className="size-4 text-accent" />} label={t.record} value={save.bestRush} />
           </div>
+
+          {homeNudge ? (
+            <button
+              type="button"
+              className={homeNudge.kind === "ahead" ? "bolt-nudge is-ahead" : "bolt-nudge"}
+              onClick={() => {
+                playUi();
+                setPendingRemove(null);
+                setPhase("friends");
+              }}
+            >
+              {homeNudge.kind === "ahead" ? <Crown className="size-4" /> : <Users className="size-4" />}
+              <span className="min-w-0 flex-1 text-pretty">
+                {homeNudge.kind === "behind"
+                  ? t.nudgeBehind(homeNudge.name, homeNudge.gap)
+                  : homeNudge.kind === "tied"
+                    ? t.nudgeTied(homeNudge.name)
+                    : t.nudgeAhead}
+              </span>
+              <ChevronRight className="size-4" />
+            </button>
+          ) : null}
 
           <div className="mt-6 flex flex-col gap-3">
             {challenge && versus ? (

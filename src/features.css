@@ -647,3 +647,32 @@
     padding: 0.5rem;
   }
 }
+
+/* --- Spinta al ritorno (home) ----------------------------------------------- */
+.bolt-nudge {
+  margin-top: 0.75rem;
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--color-line);
+  border-radius: 1rem;
+  background: var(--color-surface);
+  color: var(--color-fg);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: left;
+}
+.bolt-nudge > svg:first-child {
+  flex: none;
+  color: var(--color-accent);
+}
+.bolt-nudge > svg:last-child {
+  flex: none;
+  color: var(--color-muted);
+}
+.bolt-nudge.is-ahead {
+  border-color: var(--color-accent);
+}
