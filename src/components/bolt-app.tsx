@@ -647,7 +647,8 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
       name && result && target
         ? challengeLink(name, target, result)
         : `${baseUrl()}${shareCode ? `?c=${shareCode}` : ""}`;
-    const full = shareMessage(lang, {
+    const rematch = Boolean(name && result?.versus && target);
+    const full = (rematch ? `${t.rematchText(result!.versus!.name)}\n` : "") + shareMessage(lang, {
       kind,
       level: sim?.level,
       stars: kind === "level" ? result?.stars : undefined,
@@ -1535,8 +1536,8 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                           }
                           className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-accent font-display font-extrabold text-accent-ink"
                         >
-                          <Share2 className="size-4" />
-                          {t.share}
+                          {result.versus ? <Swords className="size-4" /> : <Share2 className="size-4" />}
+                          {result.versus ? t.rematch : t.share}
                         </button>
                         {meta.mode === "campaign" ? (
                           <button

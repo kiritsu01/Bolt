@@ -168,6 +168,8 @@ export const copy = {
     tallyTitle: "Bilancio",
     tallyLine: (wins: number, losses: number, name: string) => `Tu ${wins} - ${losses} ${name}`,
     tallyTies: (n: number) => (n === 1 ? "1 pari" : `${n} pari`),
+    rematch: "Rivincita",
+    rematchText: (name: string) => `Rivincita, ${name}! Stessa griglia: batti il mio risultato.`,
     shareResult: "Condividi",
     shareCard: {
       daily: "Sfida di oggi",
@@ -346,6 +348,8 @@ export const copy = {
     tallyTitle: "Head to head",
     tallyLine: (wins: number, losses: number, name: string) => `You ${wins} - ${losses} ${name}`,
     tallyTies: (n: number) => (n === 1 ? "1 tie" : `${n} ties`),
+    rematch: "Rematch",
+    rematchText: (name: string) => `Rematch, ${name}! Same grid: beat my result.`,
     shareResult: "Share",
     shareCard: {
       daily: "Today's bolt",
