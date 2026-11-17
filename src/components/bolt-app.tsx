@@ -29,7 +29,8 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { playCalm, playMiss, playUi, playWin, resumeAudio, setSoundEnabled, unlockAudio } from "@/game/audio";
+import { playCalm, playCoin, playMiss, playStar, playUi, playWin, resumeAudio, setSoundEnabled, unlockAudio } from "@/game/audio";
+import { coinSteps } from "@/game/celebrate";
 import { celebrationFor, rushCelebration, type Celebration } from "@/game/celebrate";
 import { HAPTIC, vibrate } from "@/game/haptics";
 import { drawArrow, drawBoard, fitCanvas, layoutBoard, readPalette, type Palette } from "@/game/draw";
@@ -195,6 +196,8 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   const bestAtStartRef = useRef(0);
   /** Quanto festeggiare la partita appena chiusa (solo i successi veri). */
   const [celebration, setCelebration] = useState<Celebration | null>(null);
+  /** Il conteggio delle stelle è finito: possono partire le monete. */
+  const [starsDone, setStarsDone] = useState(false);
   /** Pannello di benvenuto quando si apre il link di un amico (invito o sfida). */
   const [arrival, setArrival] = useState<{ friend: Friend | null; challenge: Challenge | null } | null>(null);
   /** Pannello di condivisione aperto (testo completo, link, titolo). */
@@ -480,11 +483,9 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
       versus: played ? versusWinner({ ms, mistakes: sim.mistakes }, played.theirs) : undefined,
     });
     setCelebration(party);
-    if (party.confetti) setConfetti(Date.now());
-    if (party.sound === "win") {
-      playWin();
-      vibrate(HAPTIC.win);
-    } else if (party.sound === "calm") playCalm();
+    // Festa e accordo di vittoria arrivano DOPO il conteggio delle stelle (StarReveal);
+    // una fine neutra suona subito una nota calma.
+    if (party.sound === "calm") playCalm();
     publish(sim);
     setSave((prev) => {
       let next = noteDay({ ...prev, clears: prev.clears + 1 });
@@ -628,6 +629,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     unlockAudio();
     bestAtStartRef.current = save.bestRush;
     setCelebration(null);
+    setStarsDone(false);
     setActiveKey(challengeKey);
     playUi();
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1672,23 +1674,23 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                             ? t.perfect
                             : t.clear}
                       </p>
-                      <div className="mt-3 flex justify-center gap-2">
-                        {[1, 2, 3].map((i) => (
-                          <Star
-                            key={i}
-                            className={
-                              i <= result.stars
-                                ? "bolt-pop size-8 fill-accent text-accent"
-                                : "bolt-pop size-8 text-line"
-                            }
-                            style={{ animationDelay: `${(i - 1) * 80}ms` }}
-                          />
-                        ))}
-                      </div>
+                      <StarReveal
+                        key={result.ms}
+                        stars={result.stars}
+                        sounds={celebration?.starSounds ?? true}
+                        onDone={() => {
+                          setStarsDone(true);
+                          if (celebration?.confetti) setConfetti(Date.now());
+                          if (celebration?.sound === "win") {
+                            playWin();
+                            vibrate(HAPTIC.win);
+                          }
+                        }}
+                      />
                       <p className="mt-3 text-center text-sm text-muted tabular-nums">
                         {result.mistakes} {t.mistakes} · {Math.max(1, Math.round(result.ms / 1000))}s
                       </p>
-                      {result.coins > 0 ? <EarnedCoins amount={result.coins} label={t.earned} /> : null}
+                      {result.coins > 0 ? <EarnedCoins amount={result.coins} label={t.earned} start={starsDone} /> : null}
                       {result.versus ? (
                         <div className="bolt-versus" aria-live="polite">
                           <p className="bolt-versus-title">{t.versusTitle(result.versus.name)}</p>
@@ -1810,7 +1812,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                       <p className="mt-1 text-center text-sm text-muted">
                         {t.record} {Math.max(save.bestRush, result.score)}
                       </p>
-                      {result.coins > 0 ? <EarnedCoins amount={result.coins} label={t.earned} /> : null}
+                      {result.coins > 0 ? <EarnedCoins amount={result.coins} label={t.earned} start /> : null}
                       <div className="bolt-sheet-actions mt-5 flex flex-col gap-2">
                         <button
                           type="button"
@@ -2252,10 +2254,61 @@ function NameSheet({
   );
 }
 
-function EarnedCoins({ amount, label }: { amount: number; label: string }) {
+/**
+ * Stelle contate una alla volta: ognuna "atterra" con un piccolo rimbalzo e una nota che sale
+ * (do, mi, sol; la terza con l'accordo). Le stelle non guadagnate restano grigie e mute.
+ */
+function StarReveal({ stars, sounds, onDone }: { stars: number; sounds: boolean; onDone: () => void }) {
+  const [shown, setShown] = useState(0);
+  const doneRef = useRef(onDone);
+  doneRef.current = onDone;
+  useEffect(() => {
+    const timers: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      timers.push(
+        window.setTimeout(() => {
+          setShown(i + 1);
+          if (i < stars && sounds) {
+            playStar(i);
+            vibrate(HAPTIC.star);
+          }
+        }, STAR_START_MS + i * STAR_STEP_MS),
+      );
+    }
+    timers.push(window.setTimeout(() => doneRef.current(), STAR_START_MS + 2 * STAR_STEP_MS + 260));
+    return () => timers.forEach((id) => window.clearTimeout(id));
+  }, [stars, sounds]);
   return (
-    <p className="bolt-earned bolt-pop">
-      <Coins className="size-4" />+{amount} {label}
+    <div className="bolt-stars" role="img" aria-label={`${stars} / 3`}>
+      {[0, 1, 2].map((i) => (
+        <span key={i} className={i < shown ? (i < stars ? "bolt-star is-on" : "bolt-star is-off") : "bolt-star"}>
+          <Star className={i < stars && i < shown ? "size-9 fill-accent text-accent" : "size-9 text-line"} />
+        </span>
+      ))}
+    </div>
+  );
+}
+
+const STAR_START_MS = 280;
+const STAR_STEP_MS = 360;
+
+/** Monete guadagnate: il numero conta a scatti con un "tic" per moneta (al massimo 12 tic). */
+function EarnedCoins({ amount, label, start }: { amount: number; label: string; start: boolean }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (!start) return;
+    const steps = coinSteps(amount);
+    const timers = steps.map((value, i) =>
+      window.setTimeout(() => {
+        setN(value);
+        playCoin(i);
+      }, i * 70),
+    );
+    return () => timers.forEach((id) => window.clearTimeout(id));
+  }, [amount, start]);
+  return (
+    <p className={start ? "bolt-earned is-counting" : "bolt-earned is-waiting"} aria-label={`+${amount} ${label}`}>
+      <Coins className="size-4" />+{n} {label}
     </p>
   );
 }

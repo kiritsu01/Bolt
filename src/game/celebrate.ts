@@ -30,3 +30,11 @@ export function rushCelebration(score: number, previousBest: number): Celebratio
   if (score > 0 && score > previousBest) return { title: "won", confetti: true, sound: "win", starSounds: false };
   return { title: "done", confetti: false, sound: "calm", starSounds: false };
 }
+
+/** Valori mostrati mentre le monete si contano: un passo per moneta, al massimo 12 passi. */
+export function coinSteps(amount: number, maxSteps = 12) {
+  const total = Math.max(0, Math.floor(amount));
+  if (total === 0) return [];
+  const n = Math.min(total, maxSteps);
+  return Array.from({ length: n }, (_, i) => Math.round(((i + 1) * total) / n));
+}

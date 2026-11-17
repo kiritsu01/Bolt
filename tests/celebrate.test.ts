@@ -32,3 +32,14 @@ test("Rush: festa solo con un record nuovo vero", () => {
   assert.equal(rushCelebration(3000, 4000).confetti, false);
   assert.equal(rushCelebration(0, 0).confetti, false, "zero punti non si festeggia");
 });
+
+import { coinSteps } from "../src/game/celebrate";
+
+test("monete contate: arrivano esattamente al totale, al massimo 12 tic", () => {
+  assert.deepEqual(coinSteps(3), [1, 2, 3]);
+  assert.deepEqual(coinSteps(0), []);
+  const big = coinSteps(47);
+  assert.equal(big.length, 12);
+  assert.equal(big.at(-1), 47);
+  for (let i = 1; i < big.length; i++) assert.ok(big[i]! > big[i - 1]!);
+});
