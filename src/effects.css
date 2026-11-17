@@ -102,3 +102,12 @@
     display: none;
   }
 }
+
+/* Riga di emoji del riepilogo partita (la stessa che finisce nel testo condiviso). */
+.bolt-emoji-row {
+  font-size: 18px;
+  line-height: 1.2;
+  letter-spacing: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+}

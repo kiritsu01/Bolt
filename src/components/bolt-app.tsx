@@ -14,7 +14,8 @@ import {
 } from "lucide-react";
 import { playUi, resumeAudio, setSoundEnabled, unlockAudio } from "@/game/audio";
 import { drawBoard, fitCanvas, layoutBoard, readPalette, type Palette } from "@/game/draw";
-import { copy, shareText, type Lang } from "@/game/i18n";
+import { copy, type Lang } from "@/game/i18n";
+import { emojiRow, shareMessage } from "@/game/share";
 import {
   campaignSpec,
   dailySpec,
@@ -46,6 +47,8 @@ type Result = {
   ms: number;
   score: number;
   code: string | null;
+  log: number[];
+  maxCombo: number;
 };
 type Meta = { mode: Mode; level: number; spec: Spec };
 
@@ -221,6 +224,8 @@ export function BoltApp({ code }: { code?: string }) {
       ms,
       score: sim.score,
       code: encodeSpec(sim.spec),
+      log: [...sim.log],
+      maxCombo: sim.maxCombo,
     });
     setModal("clear");
     if (stars === 3) setConfetti(Date.now());
@@ -247,7 +252,15 @@ export function BoltApp({ code }: { code?: string }) {
   };
 
   overRef.current = (sim) => {
-    setResult({ stars: 0, mistakes: sim.mistakes, ms: 0, score: sim.score, code: null });
+    setResult({
+      stars: 0,
+      mistakes: sim.mistakes,
+      ms: 0,
+      score: sim.score,
+      code: null,
+      log: [...sim.log],
+      maxCombo: sim.maxCombo,
+    });
     setModal("over");
     if (sim.score > 0 && sim.score >= save.bestRush) {
       setConfetti(Date.now());
@@ -365,19 +378,23 @@ export function BoltApp({ code }: { code?: string }) {
     unlockAudio();
     const sim = simRef.current;
     const spec = sim?.spec;
-    const shareCode = spec ? encodeSpec(spec) : result?.code ?? null;
+    const shareCode = kind === "rush" ? null : spec ? encodeSpec(spec) : result?.code ?? null;
     const url = `${window.location.origin}${window.location.pathname}${shareCode ? `?c=${shareCode}` : ""}`;
-    const text = shareText(lang, kind, {
+    const full = shareMessage(lang, {
+      kind,
       level: sim?.level,
-      stars: result?.stars,
+      stars: kind === "level" ? result?.stars : undefined,
       mistakes: result?.mistakes ?? sim?.mistakes,
+      maxCombo: result?.maxCombo ?? sim?.maxCombo,
       score: result?.score ?? sim?.score,
-      seconds: result ? Math.max(1, Math.round(result.ms / 1000)) : undefined,
+      seconds: kind !== "rush" && result ? Math.max(1, result.ms / 1000) : undefined,
+      date: kind === "daily" ? today : undefined,
+      log: result?.log ?? sim?.log,
+      url,
     });
-    const full = `${text} ${url}`;
     try {
       if (navigator.share) {
-        await navigator.share({ title: "BOLT", text, url });
+        await navigator.share({ title: "BOLT", text: full });
         return;
       }
     } catch (err) {
@@ -648,6 +665,11 @@ export function BoltApp({ code }: { code?: string }) {
                       <p className="mt-3 text-center text-sm text-muted tabular-nums">
                         {result.mistakes} {t.mistakes} · {Math.max(1, Math.round(result.ms / 1000))}s
                       </p>
+                      {result.log.length ? (
+                        <p className="bolt-emoji-row mt-2 text-center" aria-hidden="true">
+                          {emojiRow(result.log)}
+                        </p>
+                      ) : null}
                       {result.code ? (
                         <p className="mt-2 text-center font-display text-lg font-extrabold tracking-widest">
                           {result.code}

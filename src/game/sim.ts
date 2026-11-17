@@ -80,6 +80,9 @@ export type Sim = {
   reduce: boolean;
   layout: Layout;
   hudAcc: number;
+  /** Registro delle mosse per la condivisione: 0 errore, 1 uscita, 2 uscita in combo (x3 o più). */
+  log: number[];
+  maxCombo: number;
 };
 
 export type Emit = {
@@ -135,6 +138,8 @@ export function freshSim(args: {
     reduce: args.reduce,
     layout: { ox: 16, oy: 16, cell: 56 },
     hudAcc: 0,
+    log: [],
+    maxCombo: 0,
   };
 }
 
@@ -189,6 +194,7 @@ export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
   if (!ok) {
     sim.mistakes += 1;
     sim.combo = 0;
+    sim.log.push(0);
     sim.bumpers.push({ id: arrow.id, age: 0, dur: sim.reduce ? 0.08 : 0.18 });
     if (!sim.reduce) sim.trauma = Math.min(1, sim.trauma + 0.42);
     playMiss();
@@ -197,6 +203,8 @@ export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
   }
   const combo = now - sim.lastExit < 1400 && sim.lastExit > 0 ? sim.combo + 1 : 1;
   sim.combo = combo;
+  sim.maxCombo = Math.max(sim.maxCombo, combo);
+  sim.log.push(combo >= 3 ? 2 : 1);
   sim.lastExit = now;
   sim.coach = false;
   sim.hintId = sim.hintId === arrow.id ? null : sim.hintId;

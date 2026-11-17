@@ -36,7 +36,7 @@ export const copy = {
     over: "Tempo",
     score: "Punteggio",
     again: "Ancora",
-    copied: "Codice copiato",
+    copied: "Risultato copiato",
     shareFail: "Tieni premuto il codice per copiarlo",
     locked: "Chiuso",
     soundOn: "Audio attivo",
@@ -47,6 +47,17 @@ export const copy = {
     dailyDone: "Migliore di oggi",
     hype: ["Ottimo!", "Fantastico!", "Inarrestabile!", "Leggendario!"],
     newRecord: "Nuovo record!",
+    shareResult: "Condividi",
+    shareCard: {
+      daily: "Sfida di oggi",
+      level: "Livello",
+      challenge: "Sfida",
+      rush: "Rush",
+      points: "punti",
+      noMistakes: "zero errori",
+      beatMe: "Riesci a fare meglio?",
+      beatRush: "Battimi.",
+    },
   },
   en: {
     kicker: "One-thumb puzzle",
@@ -83,7 +94,7 @@ export const copy = {
     over: "Time",
     score: "Score",
     again: "Again",
-    copied: "Code copied",
+    copied: "Result copied",
     shareFail: "Long-press the code to copy it",
     locked: "Locked",
     soundOn: "Sound on",
@@ -94,22 +105,16 @@ export const copy = {
     dailyDone: "Today's best",
     hype: ["Great!", "Awesome!", "Unstoppable!", "Legendary!"],
     newRecord: "New record!",
+    shareResult: "Share",
+    shareCard: {
+      daily: "Today's bolt",
+      level: "Level",
+      challenge: "Challenge",
+      rush: "Rush",
+      points: "pts",
+      noMistakes: "no misses",
+      beatMe: "Can you do better?",
+      beatRush: "Beat me.",
+    },
   },
 } as const;
-
-export function shareText(
-  lang: Lang,
-  kind: "level" | "daily" | "rush" | "challenge",
-  detail: { level?: number; stars?: number; mistakes?: number; score?: number; seconds?: number },
-) {
-  if (lang === "it") {
-    if (kind === "rush") return `BOLT Rush · ${detail.score ?? 0} punti. Battimi.`;
-    if (kind === "daily")
-      return `BOLT di oggi · ${detail.mistakes ?? 0} errori in ${detail.seconds ?? 0}s.`;
-    return `BOLT livello ${detail.level ?? 1} · ${detail.stars ?? 1} stelle. Ce la fai?`;
-  }
-  if (kind === "rush") return `BOLT Rush · ${detail.score ?? 0} pts. Beat me.`;
-  if (kind === "daily")
-    return `Today's BOLT · ${detail.mistakes ?? 0} misses in ${detail.seconds ?? 0}s.`;
-  return `BOLT level ${detail.level ?? 1} · ${detail.stars ?? 1} stars. Your turn.`;
-}
