@@ -950,9 +950,15 @@ a.flex {
   z-index: -1;
   overflow: hidden;
   pointer-events: none;
-  background:
-    radial-gradient(var(--color-dot) 1px, transparent 1px) 0 0 / 22px 22px,
-    radial-gradient(120% 80% at 50% 120%, color-mix(in srgb, var(--color-bg) 40%, black), transparent 70%);
+  background: radial-gradient(120% 80% at 50% 120%, color-mix(in srgb, var(--color-bg) 40%, black), transparent 70%);
+}
+/* Frecce fantasma: un solo canvas sopra le luci, sotto tutto il resto. */
+.bolt-ghosts {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 .bolt-glow {
   position: absolute;

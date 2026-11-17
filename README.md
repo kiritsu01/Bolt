@@ -39,6 +39,7 @@ In alto a sinistra nella home c'è il tuo nome con l'iniziale (o "Scegli il nome
 
 ## Aspetto, suoni e celebrazioni
 - **Design "neon su inchiostro"**: fondi blu inchiostro saturi, arancio acceso, testo chiaro e caldo. Dietro il gioco tre luci sfumate (accento, viola, magenta; cambiano con tema e capitolo) si spostano lentissime solo con `transform`, fluide anche sui telefoni economici. Tavola "di vetro" con un filo di luce.
+- **Frecce fantasma** al posto della griglia di pallini (`src/game/ghosts.ts`, `src/components/ghost-field.tsx`): 20-30 sagome tenuissime (opacità 0,04-0,08) che salgono piano con leggera rotazione, nel colore del tema o del capitolo. Accelerano e si scaldano verso l'oro con la combo, rallentano un attimo su un errore e schizzano via verso l'alto solo con una festa vera. Un solo canvas dietro tutto, massimo 30 fps, in pausa a pagina nascosta, fermo con movimento ridotto; i test verificano che non competano mai in contrasto con le frecce della griglia.
 - **Suoni** tutti sintetizzati con Web Audio (`src/game/audio.ts`), nessun file: si gioca offline. Pulsante audio sempre visibile (home e partita), scelta salvata.
 - **Vibrazioni** brevi con `navigator.vibrate` dove esiste (`src/game/haptics.ts`).
 - **Tocco freccia**: pop in due strati, mini rimbalzo prima del volo, vibrazione leggera. **Errore**: tremolio laterale breve e tonfo sordo, niente festa. **Serie**: la nota sale a ogni mossa per tre ottave, alone attorno alla griglia che si scalda fino all'oro, contatore "xN" che pulsa.

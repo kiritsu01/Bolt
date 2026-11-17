@@ -1,5 +1,6 @@
 import { playExit, playHit, playMiss, playUnlock } from "./audio";
 import { HAPTIC, vibrate } from "./haptics";
+import { ghostMiss } from "./ghosts";
 import {
   type Arrow,
   type Board,
@@ -240,6 +241,7 @@ export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
   sim.flashes.push({ cells, bad: !ok, age: 0, dur: ok ? 0.26 : 0.34 });
   if (res.kind === "miss") {
     sim.mistakes += 1;
+    ghostMiss(); // lo sfondo rallenta per un attimo
     sim.combo = 0;
     sim.log.push(0);
     sim.bumpers.push({ id: arrow.id, age: 0, dur: sim.reduce ? 0.08 : 0.18 });

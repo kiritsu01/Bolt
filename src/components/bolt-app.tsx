@@ -33,6 +33,8 @@ import { playBuy, playCalm, playCoin, playFanfare, playWhoosh, playMiss, playSta
 import { coinSteps } from "@/game/celebrate";
 import { celebrationFor, rushCelebration, type Celebration } from "@/game/celebrate";
 import { HAPTIC, vibrate } from "@/game/haptics";
+import { ghostBurst, setGhostHeat } from "@/game/ghosts";
+import { GhostField } from "@/components/ghost-field";
 import { drawArrow, drawBoard, fitCanvas, layoutBoard, readPalette, type Palette } from "@/game/draw";
 import { copy, type Lang } from "@/game/i18n";
 import { emojiRow, shareMessage } from "@/game/share";
@@ -533,6 +535,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     setCelebration(party);
     if (party.confetti) {
       setConfetti(Date.now());
+      ghostBurst();
       setToast(t.newRecord);
       playWin();
       vibrate(HAPTIC.win);
@@ -598,6 +601,8 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
           });
           layoutBoard(sim, fit.w, fit.h);
           drawBoard(fit.ctx, sim, paletteRef.current, now, fit.w, fit.h);
+          // Lo sfondo sente la combo: le frecce fantasma accelerano e si scaldano.
+          setGhostHeat(sim.heat, now);
         }
       }
       raf = requestAnimationFrame(loop);
@@ -1001,6 +1006,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
         <i className="bolt-glow is-a" />
         <i className="bolt-glow is-b" />
         <i className="bolt-glow is-c" />
+        <GhostField />
       </div>
       {phase === "home" ? (
         <div className="safe-top safe-bot flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -1701,7 +1707,10 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                         quiet={celebration?.title === "done"}
                         onDone={() => {
                           setStarsDone(true);
-                          if (celebration?.confetti) setConfetti(Date.now());
+                          if (celebration?.confetti) {
+                            setConfetti(Date.now());
+                            ghostBurst();
+                          }
                           if (celebration?.sound === "win") {
                             playWin();
                             vibrate(HAPTIC.win);
