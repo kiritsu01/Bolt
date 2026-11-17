@@ -34,6 +34,9 @@ Usa il test runner di Node (nessuna dipendenza in più). Controlla che ogni live
 - **PWA**: manifest, icone generate da `scripts/make-icons.mjs` (`npm run icons`), service worker generato in build (`src/pwa/sw-template.js` + plugin in `vite.config.ts`) per giocare offline. Dopo il terzo livello completato la home mostra un invito chiudibile ad aggiungere BOLT alla schermata Home (pulsante del browser su Android/Chrome, istruzioni su iPhone).
 - **Effetti**: scia delle frecce in uscita, spazzata luminosa quando la griglia si svuota, tono che sale con la combo (scala pentatonica). Con `prefers-reduced-motion` niente scia né scosse e la spazzata diventa una dissolvenza.
 
+## Profilo
+In alto a sinistra nella home c'è il tuo nome con l'iniziale (o "Scegli il nome"). Toccandolo si apre il Profilo: il nome con cui ti vedono gli amici (modificabile), il codice giocatore, il pulsante per invitare e i record (livello e capitolo raggiunti, livelli completati e a 3 stelle, stelle, serie, record Rush, migliore Sfida di oggi, sfide vinte e perse, amici, monete). I record sono ricavati dal salvataggio: nessun dato nuovo, il formato resta la versione 4.
+
 ## Amici (senza server)
 Tutto viaggia nei link, niente account:
 - **Invita un amico** (home) crea un link `?f=CODICE` con nome (max 12 caratteri, chiesto la prima volta), livello raggiunto, stelle, serie e data. Chi lo apre salva l'amico (max 20; se c'è già, lo aggiorna solo con dati più recenti) e vede "Giulia è al livello 23".

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import {
   Check,
+  Pencil,
+  User,
   Copy,
   MessageCircle,
   Swords,
@@ -92,7 +94,7 @@ function shortDay(date: string) {
   return m && d ? `${d}/${m}` : date;
 }
 
-type Phase = "home" | "levels" | "play" | "shop" | "friends" | "challenges";
+type Phase = "home" | "levels" | "play" | "shop" | "friends" | "challenges" | "profile";
 type Modal = null | "clear" | "over" | "hints";
 type Hud = {
   left: number;
@@ -292,6 +294,32 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   const doneList = doneChallenges(save.challenges);
   const pendingCount = pendingList.length;
   const tallies = tally(save.challenges);
+  // Record del profilo: tutto ricavato dal salvataggio, nessun dato nuovo da conservare.
+  const bestDaily = Object.values(save.daily).reduce<{ ms: number; mistakes: number } | null>(
+    (best, d) => (!best || d.mistakes < best.mistakes || (d.mistakes === best.mistakes && d.ms < best.ms) ? d : best),
+    null,
+  );
+  const levelsDone = Math.max(0, save.unlocked - 1);
+  const perfect = Object.values(save.stars).filter((n) => n >= 3).length;
+  const wins = tallies.reduce((n, r) => n + r.wins, 0);
+  const losses = tallies.reduce((n, r) => n + r.losses, 0);
+  const profileStats = [
+    { label: t.levelReached, value: `${save.unlocked}` },
+    { label: t.chapter, value: t.chapters[chapterIndex(save.unlocked)]!.name },
+    { label: t.levelsDone, value: `${levelsDone}` },
+    { label: t.stars, value: `${totalStars}` },
+    { label: t.perfectLevels, value: `${perfect}` },
+    { label: t.streak, value: `${save.streak}` },
+    { label: t.bestRush, value: `${save.bestRush}` },
+    {
+      label: t.bestDaily,
+      value: bestDaily ? `${formatClock(bestDaily.ms / 1000)} · ${bestDaily.mistakes} ${t.errShort}` : "–",
+    },
+    { label: t.dailiesPlayed, value: `${Object.keys(save.daily).length}` },
+    { label: t.challengesRecord, value: `${wins} - ${losses}` },
+    { label: t.friends, value: `${save.friends.length}` },
+    { label: t.coins, value: `${save.coins}` },
+  ];
 
   useEffect(() => {
     let loaded = loadSave();
@@ -744,6 +772,19 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     });
   }
 
+  function openProfile() {
+    unlockAudio();
+    playUi();
+    setPhase("profile");
+  }
+
+  /** Scegli o cambia il nome: compare negli inviti, nelle sfide e sulla mappa degli amici. */
+  function editName() {
+    unlockAudio();
+    playUi();
+    setAskName(() => (name: string) => setToast(t.nameSaved(name)));
+  }
+
   function saveName(raw: string) {
     const name = cleanName(raw);
     if (!name) return;
@@ -904,9 +945,23 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     >
       {phase === "home" ? (
         <div className="safe-top safe-bot flex min-h-0 flex-1 flex-col overflow-y-auto">
-          <div className="flex items-center justify-between py-3">
-            <p className="text-xs font-medium tracking-widest text-muted uppercase">{t.kicker}</p>
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 py-3">
+            <button
+              type="button"
+              onClick={openProfile}
+              className="bolt-profile-chip"
+              aria-label={`${t.profile}: ${save.playerName || t.chooseName}`}
+            >
+              <span
+                className="bolt-avatar is-chip"
+                style={{ background: save.playerName ? avatarColor(save.playerId) : "var(--color-line)" }}
+                aria-hidden="true"
+              >
+                {save.playerName ? [...save.playerName][0]?.toUpperCase() : <User className="size-4" />}
+              </span>
+              <span className="truncate">{save.playerName || t.chooseName}</span>
+            </button>
+            <div className="flex flex-none items-center gap-2">
               <button
                 type="button"
                 onClick={openShop}
@@ -919,9 +974,11 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
               <button
                 type="button"
                 onClick={toggleLang}
-                className="h-11 rounded-full bg-surface px-3 text-sm font-semibold text-fg"
+                aria-label={t.lang}
+                title={t.lang}
+                className="size-11 rounded-full bg-surface text-sm font-semibold text-fg"
               >
-                {t.lang}
+                {t.langShort}
               </button>
               <button
                 type="button"
@@ -935,6 +992,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
           </div>
 
           <div className="pt-4 pb-6">
+            <p className="mb-2 text-xs font-medium tracking-widest text-muted uppercase">{t.kicker}</p>
             <h1 className="font-display text-7xl leading-none font-extrabold tracking-tight">
               BO<span className="text-accent">L</span>T
             </h1>
@@ -1376,6 +1434,63 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
             ) : (
               <p className="text-sm text-pretty text-muted">{t.noDone}</p>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {phase === "profile" ? (
+        <div className="safe-top safe-bot flex min-h-0 flex-1 flex-col">
+          <header className="flex h-14 items-center gap-2">
+            <IconButton label={t.back} onClick={goHome}>
+              <ChevronLeft className="size-5" />
+            </IconButton>
+            <h2 className="font-display text-xl font-extrabold">{t.profile}</h2>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+            <section className="bolt-profile-card">
+              <span
+                className="bolt-avatar is-hero"
+                style={{ background: save.playerName ? avatarColor(save.playerId) : "var(--color-line)" }}
+                aria-hidden="true"
+              >
+                {save.playerName ? [...save.playerName][0]?.toUpperCase() : <User className="size-7" />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold tracking-widest text-muted uppercase">{t.seenAs}</p>
+                <p className="truncate font-display text-3xl font-extrabold">{save.playerName || t.noNameYet}</p>
+                <p className="mt-1 text-sm text-muted tabular-nums">
+                  {t.playerCode} <strong className="text-fg tracking-widest">{save.playerId}</strong>
+                </p>
+              </div>
+            </section>
+            <div className="bolt-home-pair mt-3">
+              <button
+                type="button"
+                onClick={editName}
+                className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface font-display text-base font-semibold"
+              >
+                <Pencil className="size-4 text-accent" />
+                {save.playerName ? t.editName : t.chooseName}
+              </button>
+              <button
+                type="button"
+                onClick={invite}
+                className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-accent font-display text-base font-extrabold text-accent-ink"
+              >
+                <UserPlus className="size-4" />
+                {t.invite}
+              </button>
+            </div>
+
+            <h3 className="bolt-shop-title">{t.recordsTitle}</h3>
+            <div className="bolt-record-grid">
+              {profileStats.map((row) => (
+                <div key={row.label} className="bolt-record">
+                  <span className="bolt-record-label">{row.label}</span>
+                  <span className="bolt-record-value tabular-nums">{row.value}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       ) : null}
