@@ -326,6 +326,36 @@ export function drawBoard(ctx: CanvasRenderingContext2D, sim: Sim, palette: Pale
     }
   }
 
+  // Scia delle frecce che escono (spenta con prefers-reduced-motion).
+  if (!sim.reduce) {
+    for (const f of sim.flyers) {
+      const t = Math.min(1, f.age / f.dur);
+      const head = f.dist * cell * t * t;
+      const tail = Math.max(0, head - cell * (1.2 + Math.min(f.combo, 8) * 0.25));
+      if (head - tail < 1) continue;
+      const sx0 = ox + (f.x + 0.5) * cell;
+      const sy0 = oy + (f.y + 0.5) * cell;
+      const x1 = sx0 + VX[f.dir] * tail;
+      const y1 = sy0 + VY[f.dir] * tail;
+      const x2 = sx0 + VX[f.dir] * head;
+      const y2 = sy0 + VY[f.dir] * head;
+      const color = f.combo > 2 ? palette.accent : palette.fg;
+      const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+      grad.addColorStop(0, "rgba(0,0,0,0)");
+      grad.addColorStop(1, color);
+      ctx.save();
+      ctx.globalAlpha = 0.55 * (1 - t * 0.6);
+      ctx.strokeStyle = grad;
+      ctx.lineCap = "round";
+      ctx.lineWidth = cell * (f.combo > 2 ? 0.34 : 0.26);
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   for (const f of sim.flyers) {
     const t = Math.min(1, f.age / f.dur);
     const eased = t * t;
@@ -366,5 +396,54 @@ export function drawBoard(ctx: CanvasRenderingContext2D, sim: Sim, palette: Pale
     ctx.fillText(f.text, ox + f.x * cell, oy + f.y * cell - rise);
   }
   ctx.globalAlpha = 1;
+
+  if (sim.sweep) drawSweep(ctx, sim, palette, ox, oy, bw, bh, radius);
+  ctx.restore();
+}
+
+/**
+ * Spazzata luminosa quando la griglia si svuota: una banda di luce attraversa la tavola in diagonale.
+ * Con prefers-reduced-motion la banda non si muove: la tavola si illumina e si spegne piano.
+ */
+function drawSweep(
+  ctx: CanvasRenderingContext2D,
+  sim: Sim,
+  palette: Palette,
+  ox: number,
+  oy: number,
+  bw: number,
+  bh: number,
+  radius: number,
+) {
+  const sweep = sim.sweep!;
+  const t = Math.min(1, sweep.age / sweep.dur);
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(ox - 10, oy - 10, bw + 20, bh + 20, radius);
+  ctx.clip();
+  if (sim.reduce) {
+    ctx.globalAlpha = 0.22 * Math.sin(t * Math.PI);
+    ctx.fillStyle = palette.accent;
+    ctx.fillRect(ox - 10, oy - 10, bw + 20, bh + 20);
+    ctx.restore();
+    return;
+  }
+  const span = bw + bh;
+  const pos = -span * 0.35 + t * span * 1.7;
+  const band = Math.max(40, span * 0.22);
+  const x0 = ox + pos;
+  const grad = ctx.createLinearGradient(x0 - band, oy, x0 + band, oy + band * 0.6);
+  grad.addColorStop(0, "rgba(255,255,255,0)");
+  grad.addColorStop(0.45, palette.accent);
+  grad.addColorStop(0.5, palette.fg);
+  grad.addColorStop(0.55, palette.accent);
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.globalAlpha = 0.8 * (1 - t * 0.5);
+  ctx.globalCompositeOperation = "lighter";
+  ctx.translate(ox + bw / 2, oy + bh / 2);
+  ctx.rotate(-0.35);
+  ctx.translate(-(ox + bw / 2), -(oy + bh / 2));
+  ctx.fillStyle = grad;
+  ctx.fillRect(ox - span, oy - span, bw + span * 2, bh + span * 2);
   ctx.restore();
 }

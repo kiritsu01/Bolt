@@ -49,10 +49,24 @@ function tone(freq: number, dur: number, type: OscillatorType, vol: number, slid
   };
 }
 
+const PENTATONIC = [0, 2, 4, 7, 9];
+
+/**
+ * Altezza (Hz) del suono di uscita: sale lungo una scala pentatonica a ogni passo di combo,
+ * fino a due ottave sopra la nota di partenza, poi resta in cima.
+ */
+export function comboPitch(combo: number) {
+  const step = Math.max(0, Math.min(10, combo - 1));
+  const semis = Math.floor(step / 5) * 12 + PENTATONIC[step % 5]!;
+  return 392 * 2 ** (semis / 12);
+}
+
 export function playExit(combo: number) {
-  const base = 380 + Math.min(combo, 12) * 42;
-  const wobble = 0.94 + Math.random() * 0.12;
-  tone(base * wobble, 0.11, "triangle", 0.12, base * wobble * 1.85);
+  const base = comboPitch(combo);
+  const wobble = 0.99 + Math.random() * 0.02;
+  tone(base * wobble, 0.11, "triangle", 0.12, base * wobble * 1.6);
+  // Dalla combo x4 si aggiunge una quinta sopra, più leggera: la catena "brilla".
+  if (combo >= 4) tone(base * 1.5, 0.09, "sine", 0.05, base * 2.2);
 }
 
 export function playHit() {

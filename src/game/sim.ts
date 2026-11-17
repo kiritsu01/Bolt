@@ -73,6 +73,11 @@ export type Sim = {
   pulses: Array<{ id: number; kind: "spin" | "lock" | "hit"; age: number; dur: number }>;
   /** Nessuna freccia può uscire ma la griglia non è vuota (possibile con le rotanti). */
   stuck: boolean;
+  /** Spazzata luminosa sulla griglia appena svuotata. */
+  sweep: { age: number; dur: number } | null;
+  /** Fine partita in attesa: il pannello arriva dopo la spazzata. */
+  clearPending: boolean;
+  finishedAt: number;
   timeLeft: number;
   deadline: number;
   paused: boolean;
@@ -133,6 +138,9 @@ export function freshSim(args: {
     undo: [],
     pulses: [],
     stuck: false,
+    sweep: null,
+    clearPending: false,
+    finishedAt: 0,
     timeLeft: 45,
     deadline: 0,
     paused: false,
@@ -369,17 +377,29 @@ export function step(sim: Sim, dt: number, now: number, emit: Emit) {
       sim.hintId = null;
       sim.mistakes = 0;
       burst(sim, spec.w / 2, spec.h / 2, true);
+      sim.sweep = { age: 0, dur: sim.reduce ? 0.3 : 0.55 };
       sim.floaters.push({ x: spec.w / 2, y: 0.4, text: "+3s", age: 0, dur: 0.75 });
       playExit(8);
       emit.bank(sim);
       emit.hud(sim);
     } else {
       sim.resolved = true;
+      sim.finishedAt = now;
+      sim.clearPending = true;
+      sim.sweep = { age: 0, dur: sim.reduce ? 0.35 : 0.7 };
       burst(sim, (sim.board.w || sim.spec.w) / 2, (sim.board.h || sim.spec.h) / 2, true);
       playClear();
       vibrate([12, 40, 20]);
+    }
+  }
+
+  if (sim.sweep) {
+    sim.sweep.age += dt;
+    if (sim.clearPending && sim.sweep.age >= sim.sweep.dur * 0.8) {
+      sim.clearPending = false;
       emit.clear(sim);
     }
+    if (sim.sweep.age >= sim.sweep.dur) sim.sweep = null;
   }
 
   if (sim.mode === "rush" && !sim.paused && !sim.over && sim.flyers.length === 0 && sim.deadline) {

@@ -40,3 +40,11 @@ test("riga di emoji della condivisione", () => {
   assert.match(msg, /❌ 1  🔥 x5  ⏱️ 0:42/);
   assert.ok(msg.endsWith("https://x.y/?c=ABC"));
 });
+
+import { comboPitch } from "../src/game/audio";
+
+test("il tono sale con la combo e si ferma due ottave sopra", () => {
+  for (let c = 1; c < 11; c++) assert.ok(comboPitch(c + 1) > comboPitch(c), `combo ${c}`);
+  assert.ok(Math.abs(comboPitch(11) / comboPitch(1) - 4) < 1e-9);
+  assert.equal(comboPitch(30), comboPitch(11));
+});

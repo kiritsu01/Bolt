@@ -288,7 +288,7 @@ export function BoltApp({ code }: { code?: string }) {
       sim.mode === "campaign" && sim.level <= 2
         ? 3
         : starsFor(sim.mistakes, sim.hintsUsed, sim.undos);
-    const ms = performance.now() - sim.startedAt;
+    const ms = (sim.finishedAt || performance.now()) - sim.startedAt;
     const earned =
       sim.mode === "campaign"
         ? coinsFor.stars(stars, save.stars[String(sim.level)] ?? 0)
