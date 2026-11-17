@@ -49,3 +49,19 @@ test("mini rimbalzo al tocco: si gonfia poco e torna esattamente a riposo", () =
   assert.equal(flyPop(0.5, false), 1, "dopo la carica torna a riposo");
   assert.equal(flyPop(0.05, true), 1, "con movimento ridotto niente rimbalzo");
 });
+
+import { wiggle } from "../src/game/draw";
+
+test("tremolio dell'errore: breve, contenuto e torna esattamente a riposo", () => {
+  assert.equal(wiggle(0), 0);
+  assert.ok(Math.abs(wiggle(1)) < 1e-12);
+  let crossings = 0;
+  let prev = wiggle(0.001);
+  for (let t = 0.01; t < 1; t += 0.01) {
+    const w = wiggle(t);
+    assert.ok(Math.abs(w) <= 1);
+    if (Math.sign(w) !== Math.sign(prev) && w !== 0) crossings++;
+    prev = w;
+  }
+  assert.ok(crossings >= 4 && crossings <= 6, `oscillazioni: ${crossings}`);
+});

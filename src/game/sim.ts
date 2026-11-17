@@ -240,7 +240,7 @@ export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
     sim.combo = 0;
     sim.log.push(0);
     sim.bumpers.push({ id: arrow.id, age: 0, dur: sim.reduce ? 0.08 : 0.18 });
-    if (!sim.reduce) sim.trauma = Math.min(1, sim.trauma + 0.42);
+    if (!sim.reduce) sim.trauma = Math.min(1, sim.trauma + 0.26);
     playMiss();
     vibrate(HAPTIC.miss);
     return;

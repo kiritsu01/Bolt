@@ -16,6 +16,12 @@ export type Palette = {
 
 const ROT = [-Math.PI / 2, 0, Math.PI / 2, Math.PI] as const;
 
+/** Tremolio dell'errore: tre oscillazioni che si smorzano fino a zero (riposo esatto a t = 1). */
+export function wiggle(t: number) {
+  const u = Math.min(1, Math.max(0, t));
+  return Math.sin(u * Math.PI * 6) * (1 - u) * (1 - u);
+}
+
 const easeOut = (t: number) => 1 - (1 - Math.min(1, Math.max(0, t))) ** 3;
 
 export function readPalette(el: Element = document.documentElement): Palette {
@@ -298,11 +304,12 @@ export function drawBoard(ctx: CanvasRenderingContext2D, sim: Sim, palette: Pale
     let oyb = 0;
     let stretch = 1;
     if (bump) {
-      const t = bump.age / bump.dur;
-      const mag = Math.sin(t * Math.PI) * cell * 0.2;
-      oxb = VX[arrow.dir] * mag;
-      oyb = VY[arrow.dir] * mag;
-      stretch = 1 - 0.14 * Math.sin(t * Math.PI);
+      // Errore: tremolio laterale breve (tre oscillazioni che si smorzano), come un "no" con la testa.
+      const t = Math.min(1, bump.age / bump.dur);
+      const mag = sim.reduce ? 0 : wiggle(t) * cell * 0.09;
+      oxb = -VY[arrow.dir] * mag;
+      oyb = VX[arrow.dir] * mag;
+      stretch = 1 - 0.06 * Math.sin(t * Math.PI);
     } else if (!sim.reduce) {
       stretch = 1 + Math.sin(now / 380 + arrow.id) * 0.018;
     }
