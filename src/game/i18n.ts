@@ -170,6 +170,12 @@ export const copy = {
     tallyTies: (n: number) => (n === 1 ? "1 pari" : `${n} pari`),
     rematch: "Rivincita",
     rematchText: (name: string) => `Rivincita, ${name}! Stessa griglia: batti il mio risultato.`,
+    freeTitle: "Sfida libera",
+    freeText: "Scegli un livello completato: parte come sfida con il tuo miglior risultato.",
+    freeNoBest: "Livello senza tempo salvato: giocalo, poi sfida dal riepilogo",
+    freeNone: "Completa il livello 3 per lanciare la tua prima sfida.",
+    freeShareText: (name: string, level: number, time: string, mistakes: number) =>
+      `${name} ti sfida sul livello ${level} di BOLT: ${time} con ${mistakes} ${mistakes === 1 ? "errore" : "errori"}. Riesci a fare meglio?`,
     shareResult: "Condividi",
     shareCard: {
       daily: "Sfida di oggi",
@@ -350,6 +356,12 @@ export const copy = {
     tallyTies: (n: number) => (n === 1 ? "1 tie" : `${n} ties`),
     rematch: "Rematch",
     rematchText: (name: string) => `Rematch, ${name}! Same grid: beat my result.`,
+    freeTitle: "Free challenge",
+    freeText: "Pick a level you've cleared: it goes out as a challenge with your best result.",
+    freeNoBest: "No time saved for this level: play it, then challenge from the results",
+    freeNone: "Clear level 3 to send your first challenge.",
+    freeShareText: (name: string, level: number, time: string, mistakes: number) =>
+      `${name} challenges you on BOLT level ${level}: ${time} with ${mistakes} ${mistakes === 1 ? "miss" : "misses"}. Can you do better?`,
     shareResult: "Share",
     shareCard: {
       daily: "Today's bolt",

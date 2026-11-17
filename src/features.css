@@ -769,3 +769,33 @@
   padding: 0.0625rem 0.5rem;
   font-size: 0.8125rem;
 }
+
+/* --- Sfida libera ------------------------------------------------------------ */
+.mt-3 {
+  margin-top: 0.75rem;
+}
+.bolt-free-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+  max-height: 15rem;
+  overflow-y: auto;
+}
+.bolt-free-best {
+  font-size: 0.6875rem;
+  color: var(--color-accent);
+}
+.bolt-level.is-nobest .bolt-free-best {
+  color: var(--color-muted);
+}
+.bolt-level.is-nobest {
+  border-style: dashed;
+}
+
+/* Messaggio a comparsa: una riga se ci sta, altrimenti va a capo restando largo. */
+.bolt-toast {
+  width: max-content;
+  max-width: calc(100% - 2.5rem);
+  text-align: center;
+  text-wrap: balance;
+}

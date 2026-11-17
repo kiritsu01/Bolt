@@ -712,6 +712,20 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     setPhase("challenges");
   }
 
+  /** Sfida libera: un livello già completato, condiviso con il miglior risultato salvato. */
+  function freeChallenge(level: number) {
+    const best = save.bests[String(level)];
+    if (!best) {
+      setToast(t.freeNoBest);
+      begin("campaign", campaignSpec(level), level);
+      return;
+    }
+    withName((name) => {
+      const url = challengeLink(name, { level, date: today }, best);
+      void deliver(`${t.freeShareText(name, level, formatClock(best.ms / 1000), best.mistakes)}\n${url}`, url);
+    });
+  }
+
   function playChallenge(ch: Challenge) {
     const spec = decodeSpec(ch.code);
     if (spec) begin("challenge", spec, 0, ch.key);
@@ -1312,6 +1326,32 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
               <p className="text-sm text-pretty text-muted">{t.noPending}</p>
             )}
 
+            <h3 className="bolt-shop-title">{t.freeTitle}</h3>
+            {save.unlocked > 3 ? (
+              <>
+                <p className="text-sm text-pretty text-muted">{t.freeText}</p>
+                <div className="bolt-free-grid mt-3">
+                  {Array.from({ length: save.unlocked - 3 }, (_, k) => save.unlocked - 1 - k).map((level) => {
+                    const best = save.bests[String(level)];
+                    return (
+                      <button
+                        key={level}
+                        type="button"
+                        className={best ? "bolt-level" : "bolt-level is-nobest"}
+                        onClick={() => freeChallenge(level)}
+                        aria-label={`${t.continue} ${level}${best ? `: ${formatClock(best.ms / 1000)}` : ""}`}
+                      >
+                        <span className="font-display text-lg font-extrabold tabular-nums">{level}</span>
+                        <span className="bolt-free-best tabular-nums">{best ? formatClock(best.ms / 1000) : "–"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-pretty text-muted">{t.freeNone}</p>
+            )}
+
             <h3 className="bolt-shop-title">{t.played}</h3>
             {doneList.length ? (
               <ul className="bolt-friend-list">
@@ -1682,7 +1722,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
       ) : null}
 
       {toast ? (
-        <p className="absolute bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-full bg-fg px-4 py-2 text-sm font-semibold text-bg">
+        <p className="bolt-toast absolute bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-full bg-fg px-4 py-2 text-sm font-semibold text-bg">
           {toast}
         </p>
       ) : null}
