@@ -29,7 +29,9 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { playMiss, playUi, resumeAudio, setSoundEnabled, unlockAudio } from "@/game/audio";
+import { playCalm, playMiss, playUi, playWin, resumeAudio, setSoundEnabled, unlockAudio } from "@/game/audio";
+import { celebrationFor, rushCelebration, type Celebration } from "@/game/celebrate";
+import { HAPTIC, vibrate } from "@/game/haptics";
 import { drawArrow, drawBoard, fitCanvas, layoutBoard, readPalette, type Palette } from "@/game/draw";
 import { copy, type Lang } from "@/game/i18n";
 import { emojiRow, shareMessage } from "@/game/share";
@@ -187,6 +189,10 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   /** Richiesta del nome prima di un invito o di una condivisione (null = nessuna). */
   const [askName, setAskName] = useState<null | ((name: string) => void)>(null);
   const friendDoneRef = useRef(false);
+  /** Record del Rush all'inizio della partita: serve a capire se il punteggio finale è davvero un record. */
+  const bestAtStartRef = useRef(0);
+  /** Quanto festeggiare la partita appena chiusa (solo i successi veri). */
+  const [celebration, setCelebration] = useState<Celebration | null>(null);
   /** Pannello di benvenuto quando si apre il link di un amico (invito o sfida). */
   const [arrival, setArrival] = useState<{ friend: Friend | null; challenge: Challenge | null } | null>(null);
   /** Pannello di condivisione aperto (testo completo, link, titolo). */
@@ -465,7 +471,16 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
         : undefined,
     });
     setModal("clear");
-    if (stars === 3) setConfetti(Date.now());
+    const party = celebrationFor({
+      stars,
+      versus: played ? versusWinner({ ms, mistakes: sim.mistakes }, played.theirs) : undefined,
+    });
+    setCelebration(party);
+    if (party.confetti) setConfetti(Date.now());
+    if (party.sound === "win") {
+      playWin();
+      vibrate(HAPTIC.win);
+    } else if (party.sound === "calm") playCalm();
     publish(sim);
     setSave((prev) => {
       let next = noteDay({ ...prev, clears: prev.clears + 1 });
@@ -504,10 +519,15 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
       coins: coinsFor.rush(sim.score),
     });
     setModal("over");
-    if (sim.score > 0 && sim.score >= save.bestRush) {
+    // Si confronta con il record di inizio partita (durante il Rush il record viene già aggiornato).
+    const party = rushCelebration(sim.score, bestAtStartRef.current);
+    setCelebration(party);
+    if (party.confetti) {
       setConfetti(Date.now());
       setToast(t.newRecord);
-    }
+      playWin();
+      vibrate(HAPTIC.win);
+    } else playCalm();
     publish(sim);
     setSave((prev) => {
       const next = noteDay({
@@ -602,6 +622,8 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
 
   function begin(mode: Mode, spec: Spec, level: number, challengeKey: string | null = null) {
     unlockAudio();
+    bestAtStartRef.current = save.bestRush;
+    setCelebration(null);
     setActiveKey(challengeKey);
     playUi();
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1595,6 +1617,9 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                 <RotateCcw className="size-5" />
               </IconButton>
             )}
+            <IconButton label={save.sound ? t.soundOn : t.soundOff} onClick={toggleSound}>
+              {save.sound ? <Volume2 className="size-5" /> : <VolumeX className="size-5" />}
+            </IconButton>
           </header>
 
           {hud.stuck ? (
@@ -1631,7 +1656,11 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                   {modal === "clear" && result ? (
                     <>
                       <p className="text-center text-xs font-semibold tracking-widest text-muted uppercase">
-                        {result.stars === 3 ? t.perfect : t.clear}
+                        {celebration
+                          ? { perfect: t.perfect, clear: t.clear, done: t.titleDone, won: t.titleWon }[celebration.title]
+                          : result.stars === 3
+                            ? t.perfect
+                            : t.clear}
                       </p>
                       <div className="mt-3 flex justify-center gap-2">
                         {[1, 2, 3].map((i) => (

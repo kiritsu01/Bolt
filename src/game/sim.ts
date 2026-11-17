@@ -1,4 +1,5 @@
-import { playClear, playExit, playHit, playMiss, playUnlock } from "./audio";
+import { playExit, playHit, playMiss, playUnlock } from "./audio";
+import { HAPTIC, vibrate } from "./haptics";
 import {
   type Arrow,
   type Board,
@@ -111,13 +112,6 @@ export type Emit = {
   bank: (sim: Sim) => void;
 };
 
-function vibrate(pattern: number | number[]) {
-  try {
-    navigator.vibrate?.(pattern);
-  } catch {
-    /* unsupported */
-  }
-}
 
 export function freshSim(args: {
   mode: Mode;
@@ -248,7 +242,7 @@ export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
     sim.bumpers.push({ id: arrow.id, age: 0, dur: sim.reduce ? 0.08 : 0.18 });
     if (!sim.reduce) sim.trauma = Math.min(1, sim.trauma + 0.42);
     playMiss();
-    vibrate([10, 28, 14]);
+    vibrate(HAPTIC.miss);
     return;
   }
   sim.undo.push({ arrows: sim.board.arrows, exited: res.kind === "exit" ? arrow.id : null });
@@ -300,7 +294,7 @@ export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
   });
   playExit(combo);
   if (res.unlocked.length) playUnlock();
-  vibrate(combo > 3 ? 16 : 8);
+  vibrate(combo >= 5 ? HAPTIC.tapHot : HAPTIC.tap);
 }
 
 export function tapCell(sim: Sim, x: number, y: number, now: number) {
@@ -411,8 +405,7 @@ export function step(sim: Sim, dt: number, now: number, emit: Emit) {
       sim.clearPending = true;
       sim.sweep = { age: 0, dur: sim.reduce ? 0.35 : 0.7 };
       burst(sim, (sim.board.w || sim.spec.w) / 2, (sim.board.h || sim.spec.h) / 2, true);
-      playClear();
-      vibrate([12, 40, 20]);
+      // Suoni e vibrazioni di fine partita li decide il pannello: si festeggiano solo i successi veri.
     }
   }
 
