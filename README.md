@@ -44,16 +44,25 @@ Tutto viaggia nei link, niente account:
 - I codici hanno un controllo e ogni campo viene validato (livello, stelle ≤ 3 per livello, serie, data non nel futuro, nome pulito): i link manomessi vengono ignorati. Logica in `src/game/friends.ts`, test in `tests/friends.test.ts`.
 - Gli amici si aggiornano solo quando rimandano il loro link: non c'è sincronizzazione automatica.
 
+## Sfide (senza server)
+- **Sfida un amico** a fine livello (dal 3 in poi) e nella Sfida di oggi: il link porta griglia (`?c=`), risultato da battere (`?v=`: nome, codice giocatore, livello, tempo ed errori) e link amico (`?f=`). Il formato di `?v=` è quello del confronto della Sfida di oggi (`src/game/friends.ts`), esteso con codice giocatore e livello: i link vecchi restano validi.
+- Chi apre il link trova la sfida in **Sfide** (home, con badge delle sfide da giocare), la gioca e vede "Tu vs Nome" con il vincitore: meno errori, a parità il tempo più basso. Conta il primo tentativo.
+- **Sfide**: elenchi "Da giocare" e "Fatte" (vinta, persa o pari con i due risultati); al massimo 30 sfide salvate, oltre si tolgono le più vecchie.
+- **Bilancio** "Tu 3 - 2 Giulia" in cima alla sezione Sfide e nella pagina Amici.
+- **Rivincita** a fine sfida: condivide la stessa griglia con il tuo risultato da battere.
+- **Sfida libera**: dalla sezione Sfide scegli un livello già completato; parte il link con il tuo miglior risultato su quel livello (salvato da questa versione in poi).
+- Ogni link viene validato: controllo d'integrità, valori plausibili e griglia uguale a quella del livello dichiarato. Logica in `src/game/challenges.ts`, test in `tests/challenges.test.ts`.
+
 ## Pubblicità
 Tutto passa da `showRewardedAd()` in `src/game/ads.ts`: oggi mostra un annuncio finto di 3 secondi. Per collegare un circuito vero basta sostituire il corpo della funzione, rispettando il contratto scritto nel file (Promise che si risolve a `true` solo se l'annuncio è stato visto fino in fondo, mai rifiutata).
 
 ## Salvataggi
-I progressi stanno in `localStorage` alla chiave `bolt-save-v3` (formato versione 3: aggiunge identità, nome e amici). Al primo avvio i salvataggi della versione 2 (`bolt-save-v2`) e 1 (`bolt-save-v1`) vengono convertiti in automatico senza perdere nulla; dalla versione 1 ogni stella già guadagnata vale una moneta.
+I progressi stanno in `localStorage` alla chiave `bolt-save-v4` (formato versione 4: aggiunge sfide ricevute e miglior risultato per livello; la 3 aveva aggiunto identità, nome e amici). Al primo avvio i salvataggi delle versioni 3, 2 e 1 vengono convertiti in automatico senza perdere nulla; dalla versione 1 ogni stella già guadagnata vale una moneta.
 
 ## Struttura
 - `src/game/` logica, generatore dei livelli, disegno su canvas, audio, testi it/en, salvataggi.
 - `src/components/bolt-app.tsx` interfaccia: home, livelli, partita, risultati.
-- `src/game/chapters.ts` capitoli; `cosmetics.ts` temi e stili di freccia; `hints.ts` scorta indizi; `share.ts` testo da condividere; `friends.ts` link amico, confronto e classifica; `ads.ts` pubblicità; `pwa.ts` service worker e invito all'installazione.
+- `src/game/chapters.ts` capitoli; `cosmetics.ts` temi e stili di freccia; `hints.ts` scorta indizi; `share.ts` testo da condividere; `friends.ts` link amico, confronto e classifica; `challenges.ts` sfide ricevute, esito e bilancio; `ads.ts` pubblicità; `pwa.ts` service worker e invito all'installazione.
 - `src/effects.css` effetti aggiunti: scritta delle combo (x5, x10...), coriandoli, ingresso dei pannelli.
 - `src/features.css` stili delle novità (mappa, presentazione capitoli, negozio, indizi, invito Home).
 - `tests/` test automatici (`npm test`).
