@@ -1,19 +1,20 @@
 /* Service worker di BOLT: fa funzionare il gioco anche offline.
  * Generato da vite.config.ts in fase di build (npm run build), che inserisce
  * l'impronta della build e l'elenco dei file da salvare. */
-const CACHE = "bolt-5a9ee0e8feeb";
+const CACHE = "bolt-e45dd097ec17";
 const PRECACHE = [
   "./",
   "./assets/bricolage-grotesque-latin-600-normal-Bw0J83-2.woff",
   "./assets/bricolage-grotesque-latin-600-normal-nxTgbNFE.woff2",
   "./assets/bricolage-grotesque-latin-800-normal-Br4b-5gk.woff",
   "./assets/bricolage-grotesque-latin-800-normal-J50vIsBe.woff2",
-  "./assets/index-Cs9qGvlE.css",
-  "./assets/index-fkimA8hE.js",
+  "./assets/index-DPsFSSxP.css",
+  "./assets/index-EB2qf7Hn.js",
   "./assets/outfit-latin-400-normal-BGsTXAXT.woff2",
   "./assets/outfit-latin-400-normal-DMwTpYkH.woff",
   "./assets/outfit-latin-500-normal-ClnHRwRh.woff",
   "./assets/outfit-latin-500-normal-DKnIMDSk.woff2",
+  "./assets/supabase-DA6srTJ9.js",
   "./favicon.svg",
   "./icons/apple-touch-icon.png",
   "./icons/icon-192.png",
