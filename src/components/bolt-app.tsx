@@ -29,7 +29,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { playCalm, playCoin, playMiss, playStar, playUi, playWin, resumeAudio, setSoundEnabled, unlockAudio } from "@/game/audio";
+import { playBuy, playCalm, playCoin, playMiss, playStar, playUi, playWin, resumeAudio, setSoundEnabled, unlockAudio } from "@/game/audio";
 import { coinSteps } from "@/game/celebrate";
 import { celebrationFor, rushCelebration, type Celebration } from "@/game/celebrate";
 import { HAPTIC, vibrate } from "@/game/haptics";
@@ -903,7 +903,10 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
       return;
     }
     playUi();
-    if (!owned) setToast(t.bought);
+    if (!owned) {
+      setToast(t.bought);
+      playBuy();
+    }
     setSave((prev) => {
       const has =
         kind === "theme" ? prev.ownedThemes.includes(id as ThemeId) : prev.ownedArrows.includes(id as ArrowStyle);
@@ -1015,7 +1018,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                 className="bolt-coin-pill"
               >
                 <Coins className="size-4 text-accent" />
-                <span className="tabular-nums">{save.coins}</span>
+                <CoinCount value={save.coins} />
               </button>
               <button
                 type="button"
@@ -1550,7 +1553,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
             <h2 className="font-display text-xl font-extrabold">{t.shop}</h2>
             <p className="bolt-coin-pill ml-auto" aria-label={`${save.coins} ${t.coins}`}>
               <Coins className="size-4 text-accent" />
-              <span className="tabular-nums">{save.coins}</span>
+              <CoinCount value={save.coins} />
             </p>
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto pb-4">
@@ -2293,6 +2296,42 @@ const STAR_START_MS = 280;
 const STAR_STEP_MS = 360;
 
 /** Monete guadagnate: il numero conta a scatti con un "tic" per moneta (al massimo 12 tic). */
+/**
+ * Contatore monete: quando il valore cambia conta fino al nuovo numero (mezzo secondo)
+ * con un piccolo rimbalzo, così si "vede" il guadagno tornando in home o comprando.
+ */
+function CoinCount({ value }: { value: number }) {
+  const [shown, setShown] = useState(value);
+  const [bump, setBump] = useState(0);
+  const fromRef = useRef(value);
+  useEffect(() => {
+    const from = fromRef.current;
+    fromRef.current = value;
+    if (from === value) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      setShown(value);
+      return;
+    }
+    setBump(Date.now());
+    const start = performance.now();
+    let raf = 0;
+    const tick = (now: number) => {
+      const k = Math.min(1, (now - start) / 500);
+      const e = 1 - (1 - k) ** 3;
+      setShown(Math.round(from + (value - from) * e));
+      if (k < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return (
+    <span key={bump} className={bump ? "tabular-nums bolt-coin-bump" : "tabular-nums"}>
+      {shown}
+    </span>
+  );
+}
+
 function EarnedCoins({ amount, label, start }: { amount: number; label: string; start: boolean }) {
   const [n, setN] = useState(0);
   useEffect(() => {
