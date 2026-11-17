@@ -1689,6 +1689,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                         key={result.ms}
                         stars={result.stars}
                         sounds={celebration?.starSounds ?? true}
+                        quiet={celebration?.title === "done"}
                         onDone={() => {
                           setStarsDone(true);
                           if (celebration?.confetti) setConfetti(Date.now());
@@ -1721,7 +1722,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                               </span>
                             </div>
                           </div>
-                          <p className="bolt-versus-verdict">
+                          <p className={`bolt-versus-verdict is-${result.versus.winner}`}>
                             {result.versus.winner === "me"
                               ? t.youWin
                               : result.versus.winner === "other"
@@ -1765,7 +1766,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                               meta.mode === "daily" ? "daily" : meta.mode === "challenge" ? "challenge" : "level",
                             )
                           }
-                          className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-accent font-display font-extrabold text-accent-ink"
+                          className={`flex h-12 items-center justify-center gap-2 rounded-2xl bg-accent font-display font-extrabold text-accent-ink ${result.versus && result.versus.winner !== "me" ? "bolt-rematch-call" : ""}`}
                         >
                           {result.versus ? <Swords className="size-4" /> : <Share2 className="size-4" />}
                           {result.versus ? t.rematch : t.share}
@@ -2275,7 +2276,18 @@ function NameSheet({
  * Stelle contate una alla volta: ognuna "atterra" con un piccolo rimbalzo e una nota che sale
  * (do, mi, sol; la terza con l'accordo). Le stelle non guadagnate restano grigie e mute.
  */
-function StarReveal({ stars, sounds, onDone }: { stars: number; sounds: boolean; onDone: () => void }) {
+function StarReveal({
+  stars,
+  sounds,
+  quiet = false,
+  onDone,
+}: {
+  stars: number;
+  sounds: boolean;
+  /** Sfida persa o pari: stelle mostrate in tono neutro, senza bagliore né rimbalzo. */
+  quiet?: boolean;
+  onDone: () => void;
+}) {
   const [shown, setShown] = useState(0);
   const doneRef = useRef(onDone);
   doneRef.current = onDone;
@@ -2296,7 +2308,7 @@ function StarReveal({ stars, sounds, onDone }: { stars: number; sounds: boolean;
     return () => timers.forEach((id) => window.clearTimeout(id));
   }, [stars, sounds]);
   return (
-    <div className="bolt-stars" role="img" aria-label={`${stars} / 3`}>
+    <div className={quiet ? "bolt-stars is-quiet" : "bolt-stars"} role="img" aria-label={`${stars} / 3`}>
       {[0, 1, 2].map((i) => (
         <span key={i} className={i < shown ? (i < stars ? "bolt-star is-on" : "bolt-star is-off") : "bolt-star"}>
           <Star className={i < stars && i < shown ? "size-9 fill-accent text-accent" : "size-9 text-line"} />
