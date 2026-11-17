@@ -14,6 +14,7 @@ import {
   rayCells,
   rushSpec,
 } from "./logic";
+import { crossTime, flyDuration } from "./motion";
 
 export type Mode = "campaign" | "daily" | "rush" | "challenge";
 
@@ -28,7 +29,13 @@ export type Flyer = {
   dur: number;
   dist: number;
   combo: number;
+  /** Momento (tempo normalizzato) in cui passa il bordo: lì nascono le scintille. */
+  cross: number;
+  crossed: boolean;
 };
+
+/** Onda morbida che parte dalla casella da cui è uscita una freccia. */
+export type Ring = { x: number; y: number; age: number; dur: number; accent: boolean };
 
 export type Particle = {
   x: number;
@@ -56,6 +63,7 @@ export type Sim = {
   spec: Spec;
   board: Board;
   flyers: Flyer[];
+  rings: Ring[];
   bumpers: Array<{ id: number; age: number; dur: number }>;
   particles: Particle[];
   floaters: Floater[];
@@ -124,6 +132,7 @@ export function freshSim(args: {
     spec: args.spec,
     board: makeBoard(args.spec),
     flyers: [],
+    rings: [],
     bumpers: [],
     particles: [],
     floaters: [],
@@ -180,23 +189,27 @@ function burst(sim: Sim, cx: number, cy: number, big: boolean) {
   }
 }
 
+/** Scintille quando la freccia passa il bordo: poche, morbide, spinte nella direzione del volo. */
 function spawnExit(sim: Sim, f: Flyer) {
   const { ox, oy, cell } = sim.layout;
-  const distPx = f.dist * cell;
+  const distPx = (f.dist - 0.5) * cell;
   const x = ox + (f.x + 0.5) * cell + VX[f.dir] * distPx;
   const y = oy + (f.y + 0.5) * cell + VY[f.dir] * distPx;
-  for (let i = 0; i < 8; i++) {
-    const ang = Math.random() * Math.PI * 2;
-    const sp = 30 + Math.random() * 100;
+  const n = sim.reduce ? 0 : 6 + Math.min(f.combo, 6);
+  for (let i = 0; i < n; i++) {
+    // Ventaglio stretto attorno alla direzione di uscita.
+    const base = Math.atan2(VY[f.dir], VX[f.dir]);
+    const ang = base + (Math.random() - 0.5) * 1.6;
+    const sp = 60 + Math.random() * 140;
     sim.particles.push({
       x,
       y,
-      vx: Math.cos(ang) * sp + VX[f.dir] * 70,
-      vy: Math.sin(ang) * sp + VY[f.dir] * 70,
+      vx: Math.cos(ang) * sp,
+      vy: Math.sin(ang) * sp,
       age: 0,
-      dur: 0.28 + Math.random() * 0.22,
-      size: 2 + Math.random() * 3,
-      accent: f.combo > 2 || Math.random() > 0.55,
+      dur: 0.35 + Math.random() * 0.3,
+      size: 2 + Math.random() * 2.5,
+      accent: f.combo > 2 || Math.random() > 0.6,
     });
   }
 }
@@ -270,10 +283,13 @@ export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
     y: arrow.y,
     dir: arrow.dir,
     age: 0,
-    dur: (sim.reduce ? 0.1 : 0.15) + dist * 0.028,
+    dur: flyDuration(dist, sim.reduce),
     dist,
     combo,
+    cross: crossTime(dist, sim.reduce),
+    crossed: false,
   });
+  if (!sim.reduce) sim.rings.push({ x: arrow.x, y: arrow.y, age: 0, dur: 0.42, accent: combo > 2 });
   if (sim.mode === "rush") sim.score += 100 * combo;
   sim.floaters.push({
     x: arrow.x + 0.5,
@@ -337,19 +353,26 @@ export function step(sim: Sim, dt: number, now: number, emit: Emit) {
   if (sim.reduce) sim.trauma = 0;
   else sim.trauma = Math.max(0, sim.trauma - dt * 1.7);
 
-  for (const f of sim.flyers) f.age += dt;
-  const landed = sim.flyers.filter((f) => f.age >= f.dur);
-  if (landed.length) {
-    for (const f of landed) spawnExit(sim, f);
-    sim.flyers = sim.flyers.filter((f) => f.age < f.dur);
+  for (const f of sim.flyers) {
+    f.age += dt;
+    if (!f.crossed && f.age / f.dur >= f.cross) {
+      f.crossed = true;
+      spawnExit(sim, f);
+    }
   }
+  if (sim.flyers.some((f) => f.age >= f.dur)) sim.flyers = sim.flyers.filter((f) => f.age < f.dur);
+  for (const r of sim.rings) r.age += dt;
+  if (sim.rings.length) sim.rings = sim.rings.filter((r) => r.age < r.dur);
   for (const b of sim.bumpers) b.age += dt;
   sim.bumpers = sim.bumpers.filter((b) => b.age < b.dur);
   for (const p of sim.particles) {
     p.age += dt;
     p.x += p.vx * dt;
     p.y += p.vy * dt;
-    p.vy += 30 * dt;
+    // Attrito leggero: le scintille rallentano con grazia invece di cadere.
+    const drag = Math.exp(-3.2 * dt);
+    p.vx *= drag;
+    p.vy *= drag;
   }
   sim.particles = sim.particles.filter((p) => p.age < p.dur);
   for (const f of sim.floaters) f.age += dt;

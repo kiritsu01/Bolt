@@ -1,5 +1,6 @@
 import type { ArrowStyle } from "./cosmetics";
 import { VX, VY, type Dir } from "./logic";
+import { flyDistance, flyFade, flyStretch } from "./motion";
 import type { Sim } from "./sim";
 
 export type Palette = {
@@ -326,61 +327,103 @@ export function drawBoard(ctx: CanvasRenderingContext2D, sim: Sim, palette: Pale
     }
   }
 
-  // Scia delle frecce che escono (spenta con prefers-reduced-motion).
-  if (!sim.reduce) {
-    for (const f of sim.flyers) {
-      const t = Math.min(1, f.age / f.dur);
-      const head = f.dist * cell * t * t;
-      const tail = Math.max(0, head - cell * (1.2 + Math.min(f.combo, 8) * 0.25));
-      if (head - tail < 1) continue;
-      const sx0 = ox + (f.x + 0.5) * cell;
-      const sy0 = oy + (f.y + 0.5) * cell;
-      const x1 = sx0 + VX[f.dir] * tail;
-      const y1 = sy0 + VY[f.dir] * tail;
-      const x2 = sx0 + VX[f.dir] * head;
-      const y2 = sy0 + VY[f.dir] * head;
-      const color = f.combo > 2 ? palette.accent : palette.fg;
+  // Onda morbida dalla casella appena liberata.
+  for (const r of sim.rings) {
+    const k = r.age / r.dur;
+    const e = 1 - (1 - k) ** 3;
+    const size = cell * (0.62 + 0.5 * e);
+    ctx.save();
+    ctx.globalAlpha = 0.32 * (1 - k);
+    ctx.strokeStyle = r.accent ? palette.accent : palette.fg;
+    ctx.lineWidth = Math.max(1.5, cell * 0.05 * (1 - k * 0.6));
+    ctx.beginPath();
+    ctx.roundRect(
+      ox + (r.x + 0.5) * cell - size / 2,
+      oy + (r.y + 0.5) * cell - size / 2,
+      size,
+      size,
+      Math.min(14, size * 0.28),
+    );
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  for (const f of sim.flyers) {
+    const t = Math.min(1, f.age / f.dur);
+    const color = f.combo > 2 ? palette.accent : palette.fg;
+    const sx0 = ox + (f.x + 0.5) * cell;
+    const sy0 = oy + (f.y + 0.5) * cell;
+    const pos = flyDistance(t, f.dist, sim.reduce);
+    const fade = sim.reduce ? { alpha: 1 - t * 0.6, scale: 1 } : flyFade(pos, f.dist);
+
+    if (!sim.reduce && pos > 0.05) {
+      // Scia: una sfumatura che segue la punta, lunga in proporzione alla velocità.
+      const prev = flyDistance(Math.max(0, t - 0.09), f.dist, false);
+      const len = Math.min(pos, Math.max(0.2, (pos - prev) * 2.2 + Math.min(f.combo, 8) * 0.06));
+      const x1 = sx0 + VX[f.dir] * (pos - len) * cell;
+      const y1 = sy0 + VY[f.dir] * (pos - len) * cell;
+      const x2 = sx0 + VX[f.dir] * pos * cell;
+      const y2 = sy0 + VY[f.dir] * pos * cell;
       const grad = ctx.createLinearGradient(x1, y1, x2, y2);
       grad.addColorStop(0, "rgba(0,0,0,0)");
       grad.addColorStop(1, color);
       ctx.save();
-      ctx.globalAlpha = 0.55 * (1 - t * 0.6);
+      ctx.globalAlpha = 0.42 * fade.alpha;
       ctx.strokeStyle = grad;
       ctx.lineCap = "round";
-      ctx.lineWidth = cell * (f.combo > 2 ? 0.34 : 0.26);
+      ctx.lineWidth = cell * (f.combo > 2 ? 0.3 : 0.22) * fade.scale;
       ctx.beginPath();
       ctx.moveTo(x1, y1);
       ctx.lineTo(x2, y2);
       ctx.stroke();
       ctx.restore();
-    }
-  }
 
-  for (const f of sim.flyers) {
-    const t = Math.min(1, f.age / f.dur);
-    const eased = t * t;
-    const distPx = f.dist * cell * eased;
-    const stretch = 1 + (sim.reduce ? 0 : 0.45 * t);
+      // Sfocatura di movimento: tre copie leggere poco indietro nel tempo.
+      for (let g = 3; g >= 1; g--) {
+        const tg = Math.max(0, t - g * 0.035);
+        const pg = flyDistance(tg, f.dist, false);
+        const fg = flyFade(pg, f.dist);
+        drawArrow(
+          ctx,
+          sx0 + VX[f.dir] * pg * cell,
+          sy0 + VY[f.dir] * pg * cell,
+          cell * fg.scale,
+          f.dir,
+          color,
+          flyStretch(tg, false),
+          0.16 * (1 - g / 4) * fg.alpha,
+          0,
+          palette.arrow,
+          palette.bg,
+        );
+      }
+    }
+
     drawArrow(
       ctx,
-      ox + (f.x + 0.5) * cell + VX[f.dir] * distPx,
-      oy + (f.y + 0.5) * cell + VY[f.dir] * distPx,
-      cell,
+      sx0 + VX[f.dir] * pos * cell,
+      sy0 + VY[f.dir] * pos * cell,
+      cell * fade.scale,
       f.dir,
-      f.combo > 2 ? palette.accent : palette.fg,
-      stretch,
-      1 - t * 0.15,
+      color,
+      flyStretch(t, sim.reduce),
+      fade.alpha,
       0,
       palette.arrow,
       palette.bg,
     );
   }
 
+  // Scintille: puntini tondi che si rimpiccioliscono mentre sfumano.
   for (const p of sim.particles) {
-    const a = 1 - p.age / p.dur;
-    ctx.globalAlpha = Math.max(0, a);
+    const k = p.age / p.dur;
+    const a = 1 - k;
+    if (a <= 0) continue;
+    ctx.globalAlpha = a * a;
     ctx.fillStyle = p.accent ? palette.accent : palette.fg;
-    ctx.fillRect(p.x, p.y, p.size, p.size);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, (p.size / 2) * (1 - 0.6 * k), 0, Math.PI * 2);
+    ctx.fill();
   }
   ctx.globalAlpha = 1;
 
