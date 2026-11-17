@@ -1,0 +1,115 @@
+export type Lang = "it" | "en";
+
+export const copy = {
+  it: {
+    kicker: "Puzzle da un dito",
+    tagline: "Tocca una freccia. Esce solo se la corsia fino al bordo è libera.",
+    continue: "Livello",
+    daily: "Sfida di oggi",
+    rush: "Rush 45s",
+    levels: "Livelli",
+    streak: "Serie",
+    stars: "Stelle",
+    record: "Record",
+    howTitle: "Tre regole",
+    rules: [
+      "Tocca una freccia.",
+      "Schizza fuori solo se nessuno le sta davanti.",
+      "Svuota la griglia. Zero errori, tre stelle.",
+    ],
+    challenge: "Sfida di un amico",
+    playChallenge: "Gioca la sfida",
+    back: "Indietro",
+    undo: "Annulla",
+    hint: "Indizio",
+    arrows: "frecce",
+    mistakes: "errori",
+    combo: "combo",
+    coach: "Tocca una freccia che guarda il bordo vuoto.",
+    coach2: "Nella fila esce solo quella davanti. Le altre sono bloccate.",
+    perfect: "Perfetto",
+    clear: "Pulito",
+    share: "Sfida un amico",
+    next: "Avanti",
+    retry: "Riprova",
+    home: "Home",
+    over: "Tempo",
+    score: "Punteggio",
+    again: "Ancora",
+    copied: "Codice copiato",
+    shareFail: "Tieni premuto il codice per copiarlo",
+    locked: "Chiuso",
+    soundOn: "Audio attivo",
+    soundOff: "Audio spento",
+    lang: "English",
+    todayDone: "Già giocata",
+    rushHint: "Più sei veloce, più il tempo si allunga.",
+    dailyDone: "Migliore di oggi",
+    hype: ["Ottimo!", "Fantastico!", "Inarrestabile!", "Leggendario!"],
+    newRecord: "Nuovo record!",
+  },
+  en: {
+    kicker: "One-thumb puzzle",
+    tagline: "Tap an arrow. It leaves only if the lane to the edge is clear.",
+    continue: "Level",
+    daily: "Today's bolt",
+    rush: "Rush 45s",
+    levels: "Levels",
+    streak: "Streak",
+    stars: "Stars",
+    record: "Best",
+    howTitle: "Three rules",
+    rules: [
+      "Tap an arrow.",
+      "It zips out only if nothing is in front of it.",
+      "Clear the grid. No mistakes, three stars.",
+    ],
+    challenge: "A friend's bolt",
+    playChallenge: "Play the challenge",
+    back: "Back",
+    undo: "Undo",
+    hint: "Hint",
+    arrows: "arrows",
+    mistakes: "misses",
+    combo: "combo",
+    coach: "Tap an arrow aimed at an open edge.",
+    coach2: "In a line, only the front arrow can leave. The rest are blocked.",
+    perfect: "Perfect",
+    clear: "Clear",
+    share: "Challenge a friend",
+    next: "Next",
+    retry: "Retry",
+    home: "Home",
+    over: "Time",
+    score: "Score",
+    again: "Again",
+    copied: "Code copied",
+    shareFail: "Long-press the code to copy it",
+    locked: "Locked",
+    soundOn: "Sound on",
+    soundOff: "Sound off",
+    lang: "Italiano",
+    todayDone: "Played",
+    rushHint: "Clear fast and the clock stretches.",
+    dailyDone: "Today's best",
+    hype: ["Great!", "Awesome!", "Unstoppable!", "Legendary!"],
+    newRecord: "New record!",
+  },
+} as const;
+
+export function shareText(
+  lang: Lang,
+  kind: "level" | "daily" | "rush" | "challenge",
+  detail: { level?: number; stars?: number; mistakes?: number; score?: number; seconds?: number },
+) {
+  if (lang === "it") {
+    if (kind === "rush") return `BOLT Rush · ${detail.score ?? 0} punti. Battimi.`;
+    if (kind === "daily")
+      return `BOLT di oggi · ${detail.mistakes ?? 0} errori in ${detail.seconds ?? 0}s.`;
+    return `BOLT livello ${detail.level ?? 1} · ${detail.stars ?? 1} stelle. Ce la fai?`;
+  }
+  if (kind === "rush") return `BOLT Rush · ${detail.score ?? 0} pts. Beat me.`;
+  if (kind === "daily")
+    return `Today's BOLT · ${detail.mistakes ?? 0} misses in ${detail.seconds ?? 0}s.`;
+  return `BOLT level ${detail.level ?? 1} · ${detail.stars ?? 1} stars. Your turn.`;
+}
