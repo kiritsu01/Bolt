@@ -7,43 +7,54 @@ export type Theme = {
   id: ThemeId;
   price: number;
   colors: { bg: string; surface: string; line: string; dot: string; muted: string; fg: string; accent: string };
+  /** Le due luci colorate che si muovono piano nello sfondo (la terza è il colore d'accento). */
+  glow: [string, string];
 };
 
+// Palette "neon su inchiostro": fondi profondi e saturi invece del quasi-nero, accenti accesi.
+// Testo e frecce (fg) restano chiari e caldi per un contrasto sempre leggibile.
 export const THEMES: Theme[] = [
   {
     id: "notte",
     price: 0,
-    colors: { bg: "#101412", surface: "#1a211c", line: "#2c362f", dot: "#24302a", muted: "#9aa396", fg: "#f3efe4", accent: "#ff4d1c" },
+    colors: { bg: "#120f2e", surface: "#1e1a45", line: "#2f2a63", dot: "#26215a", muted: "#aba5d6", fg: "#fff6e8", accent: "#ff5a1f" },
+    glow: ["#7b5cff", "#ff3d8b"],
   },
   {
     id: "carbone",
     price: 30,
-    colors: { bg: "#121212", surface: "#1e1e20", line: "#323236", dot: "#252528", muted: "#a3a3aa", fg: "#f5f5f7", accent: "#ff8a1f" },
+    colors: { bg: "#141218", surface: "#221f28", line: "#37323f", dot: "#2a2631", muted: "#b3acbe", fg: "#fbf8ff", accent: "#ff8a1f" },
+    glow: ["#5b6cff", "#ffc23d"],
   },
   {
     id: "oceano",
     price: 40,
-    colors: { bg: "#0b1320", surface: "#13203a", line: "#233759", dot: "#182a47", muted: "#8fa3c4", fg: "#eaf2ff", accent: "#38bdf8" },
+    colors: { bg: "#071a33", surface: "#0f2a4d", line: "#1d4373", dot: "#133561", muted: "#93b4db", fg: "#eef7ff", accent: "#2fd3ff" },
+    glow: ["#3a5bff", "#00e0b0"],
   },
   {
     id: "bosco",
     price: 40,
-    colors: { bg: "#0d1811", surface: "#16271b", line: "#26422e", dot: "#1b3022", muted: "#94b39c", fg: "#eef6ea", accent: "#84e05f" },
+    colors: { bg: "#0a2016", surface: "#133222", line: "#1f4d35", dot: "#183f2b", muted: "#9cc7ac", fg: "#f0fff4", accent: "#8cf25a" },
+    glow: ["#00c2a8", "#e8ff4a"],
   },
   {
     id: "prugna",
     price: 50,
-    colors: { bg: "#150f1c", surface: "#22172d", line: "#3a2a4a", dot: "#2a1d37", muted: "#ad9cc0", fg: "#f6efff", accent: "#e879f9" },
+    colors: { bg: "#1c0b2e", surface: "#2c1446", line: "#45226b", dot: "#361a57", muted: "#c3a6e0", fg: "#fbf2ff", accent: "#f45cff" },
+    glow: ["#7b4dff", "#ff5c8a"],
   },
   {
     id: "brace",
     price: 50,
-    colors: { bg: "#190f0b", surface: "#2a1812", line: "#46281e", dot: "#331d16", muted: "#c4a093", fg: "#fff1ea", accent: "#ffb02e" },
+    colors: { bg: "#250c06", surface: "#3a160c", line: "#5c2616", dot: "#4a1d10", muted: "#e0ae98", fg: "#fff3ec", accent: "#ffb02e" },
+    glow: ["#ff3d2e", "#ff7a00"],
   },
   {
     id: "mezzanotte",
     price: 60,
-    colors: { bg: "#08080e", surface: "#13131e", line: "#26263c", dot: "#1a1a29", muted: "#9696b8", fg: "#f0f0ff", accent: "#ff4f6d" },
+    colors: { bg: "#05050f", surface: "#12122a", line: "#262650", dot: "#1a1a3c", muted: "#a0a0d0", fg: "#f2f2ff", accent: "#ff4f6d" },
+    glow: ["#4d7cff", "#b04dff"],
   },
 ];
 
@@ -64,6 +75,8 @@ export function applyTheme(id: string) {
   const theme = themeById(id);
   const root = document.documentElement;
   for (const [k, v] of Object.entries(theme.colors)) root.style.setProperty(`--color-${k}`, v);
+  root.style.setProperty("--glow-b", theme.glow[0]);
+  root.style.setProperty("--glow-c", theme.glow[1]);
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme.colors.bg);
 }
 

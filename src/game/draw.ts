@@ -22,12 +22,12 @@ export function readPalette(el: Element = document.documentElement): Palette {
   const s = getComputedStyle(el);
   const g = (name: string, fallback: string) => s.getPropertyValue(name).trim() || fallback;
   return {
-    fg: g("--color-fg", "#f3efe4"),
-    accent: g("--color-accent", "#ff4d1c"),
-    surface: g("--color-surface", "#1a211c"),
-    line: g("--color-line", "#2c362f"),
-    muted: g("--color-muted", "#9aa396"),
-    bg: g("--color-bg", "#101412"),
+    fg: g("--color-fg", "#fff6e8"),
+    accent: g("--color-accent", "#ff5a1f"),
+    surface: g("--color-surface", "#1e1a45"),
+    line: g("--color-line", "#2f2a63"),
+    muted: g("--color-muted", "#aba5d6"),
+    bg: g("--color-bg", "#120f2e"),
   };
 }
 
@@ -69,7 +69,7 @@ export function drawArrow(
   alpha: number,
   turn = 0,
   style: ArrowStyle = "classic",
-  ink = "#101412",
+  ink = "#120f2e",
 ) {
   const s = cell * 0.72;
   ctx.save();
@@ -227,10 +227,21 @@ export function drawBoard(ctx: CanvasRenderingContext2D, sim: Sim, palette: Pale
   ctx.translate(sx, sy);
 
   const radius = Math.min(24, cell * 0.4);
+  // Tavola "di vetro": leggermente trasparente, lascia intravedere le luci dello sfondo.
+  ctx.globalAlpha = 0.86;
   ctx.fillStyle = palette.surface;
   ctx.beginPath();
   ctx.roundRect(ox - 10, oy - 10, bw + 20, bh + 20, radius);
   ctx.fill();
+  ctx.globalAlpha = 1;
+  // Filo di luce sul bordo superiore, come una lastra illuminata dall'alto.
+  const rim = ctx.createLinearGradient(0, oy - 10, 0, oy + bh + 10);
+  rim.addColorStop(0, "rgba(255,255,255,0.16)");
+  rim.addColorStop(0.35, "rgba(255,255,255,0.03)");
+  rim.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.strokeStyle = rim;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
 
   ctx.strokeStyle = palette.line;
   ctx.lineWidth = 1;

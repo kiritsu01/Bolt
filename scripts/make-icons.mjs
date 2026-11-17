@@ -8,9 +8,9 @@ import { fileURLToPath } from "node:url";
 
 const OUT = resolve(dirname(fileURLToPath(import.meta.url)), "../public/icons");
 
-const BG = [0x10, 0x14, 0x12];
-const FG = [0xf3, 0xef, 0xe4];
-const ACCENT = [0xff, 0x4d, 0x1c];
+const BG = [0x12, 0x0f, 0x2e];
+const FG = [0xff, 0xf6, 0xe8];
+const ACCENT = [0xff, 0x5a, 0x1f];
 
 // Forme nello spazio 32x32 del favicon.
 const ARROW = [

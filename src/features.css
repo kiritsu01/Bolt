@@ -935,3 +935,90 @@ a.flex {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* --- Sfondo vivo ------------------------------------------------------------
+   Tre grandi luci sfumate (arancio d'accento, viola, magenta: cambiano con tema e capitolo)
+   che si spostano lentissime. Solo transform e opacity: niente filtri pesanti, fluido anche
+   sui telefoni economici. Con prefers-reduced-motion restano ferme. */
+:root {
+  --glow-b: #7b5cff;
+  --glow-c: #ff3d8b;
+}
+.bolt-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(var(--color-dot) 1px, transparent 1px) 0 0 / 22px 22px,
+    radial-gradient(120% 80% at 50% 120%, color-mix(in srgb, var(--color-bg) 40%, black), transparent 70%);
+}
+.bolt-glow {
+  position: absolute;
+  display: block;
+  width: 90vmax;
+  height: 90vmax;
+  border-radius: 50%;
+  opacity: 0.32;
+  will-change: transform;
+}
+.bolt-glow.is-a {
+  left: -35vmax;
+  top: -40vmax;
+  background: radial-gradient(closest-side, var(--color-accent), transparent);
+  animation: bolt-drift-a 34s ease-in-out infinite alternate;
+}
+.bolt-glow.is-b {
+  right: -45vmax;
+  top: 10vmax;
+  background: radial-gradient(closest-side, var(--glow-b), transparent);
+  opacity: 0.3;
+  animation: bolt-drift-b 41s ease-in-out infinite alternate;
+}
+.bolt-glow.is-c {
+  left: -20vmax;
+  bottom: -55vmax;
+  background: radial-gradient(closest-side, var(--glow-c), transparent);
+  opacity: 0.22;
+  animation: bolt-drift-c 47s ease-in-out infinite alternate;
+}
+@keyframes bolt-drift-a {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(22vmax, 18vmax, 0) scale(1.15);
+  }
+}
+@keyframes bolt-drift-b {
+  from {
+    transform: translate3d(0, 0, 0) scale(1.1);
+  }
+  to {
+    transform: translate3d(-24vmax, 26vmax, 0) scale(0.92);
+  }
+}
+@keyframes bolt-drift-c {
+  from {
+    transform: translate3d(0, 0, 0) scale(0.95);
+  }
+  to {
+    transform: translate3d(26vmax, -20vmax, 0) scale(1.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bolt-glow {
+    animation: none;
+  }
+}
+
+/* Luce d'accento: i pulsanti principali e la "L" del titolo brillano appena, come neon. */
+.rounded-2xl.bg-accent {
+  box-shadow:
+    0 10px 30px -10px color-mix(in srgb, var(--color-accent) 75%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.25);
+}
+h1 .text-accent {
+  text-shadow: 0 0 28px color-mix(in srgb, var(--color-accent) 65%, transparent);
+}

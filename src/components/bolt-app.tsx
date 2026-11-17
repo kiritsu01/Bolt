@@ -124,12 +124,12 @@ type Result = {
 type Meta ={ mode: Mode; level: number; spec: Spec };
 
 const FALLBACK: Palette = {
-  fg: "#f3efe4",
-  accent: "#ff4d1c",
-  surface: "#1a211c",
-  line: "#2c362f",
-  muted: "#9aa396",
-  bg: "#101412",
+  fg: "#fff6e8",
+  accent: "#ff5a1f",
+  surface: "#1e1a45",
+  line: "#2f2a63",
+  muted: "#aba5d6",
+  bg: "#120f2e",
 };
 
 const CONFETTI_COLORS = ["var(--color-accent)", "var(--color-fg)", "var(--color-muted)"];
@@ -977,6 +977,12 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
       className="safe-x relative mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden"
       style={accent ? ({ "--color-accent": accent } as CSSProperties) : undefined}
     >
+      {/* Sfondo vivo: luci colorate che si muovono piano (solo transform, fluido anche sui telefoni economici). */}
+      <div className="bolt-bg" aria-hidden="true">
+        <i className="bolt-glow is-a" />
+        <i className="bolt-glow is-b" />
+        <i className="bolt-glow is-c" />
+      </div>
       {phase === "home" ? (
         <div className="safe-top safe-bot flex min-h-0 flex-1 flex-col overflow-y-auto">
           <div className="flex items-center justify-between gap-2 py-3">
