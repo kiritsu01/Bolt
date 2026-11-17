@@ -1,9 +1,10 @@
 import type { ArrowStyle, ThemeId } from "./cosmetics";
 import { newPlayerId, sanitizeFriends, isPlayerId, cleanName, type Friend } from "./friends";
+import { sanitizeChallenges, type Challenge, type Score } from "./challenges";
 import { todayKey, yesterdayKey } from "./logic";
 
 export type Save = {
-  version: 3;
+  version: 4;
   unlocked: number;
   stars: Record<string, number>;
   bestRush: number;
@@ -32,7 +33,14 @@ export type Save = {
   playerName: string;
   /** Amici ricevuti dai link ?f= (al massimo 20). */
   friends: Friend[];
+  /** Sfide ricevute (al massimo 30): da giocare e fatte. */
+  challenges: Challenge[];
+  /** Miglior risultato per livello (meno errori, poi tempo): serve alla Sfida libera. */
+  bests: Record<string, Score>;
 };
+
+/** Formato della versione 3 (chiave "bolt-save-v3"). */
+type SaveV3 = Omit<Save, "version" | "challenges" | "bests"> & { version: 3 };
 
 /** Formato della versione 2 (chiave "bolt-save-v2"). */
 type SaveV2 = Omit<Save, "version" | "playerId" | "playerName" | "friends"> & { version: 2 };
@@ -43,12 +51,13 @@ type SaveV1 = Pick<
   "unlocked" | "stars" | "bestRush" | "streak" | "lastDay" | "daily" | "sound" | "lang" | "clears"
 > & { version: 1 };
 
-const KEY = "bolt-save-v3";
+const KEY = "bolt-save-v4";
+const KEY_V3 = "bolt-save-v3";
 const KEY_V2 = "bolt-save-v2";
 const KEY_V1 = "bolt-save-v1";
 
 export const defaultSave = (): Save => ({
-  version: 3,
+  version: 4,
   unlocked: 1,
   stars: {},
   bestRush: 0,
@@ -70,6 +79,8 @@ export const defaultSave = (): Save => ({
   playerId: newPlayerId(),
   playerName: "",
   friends: [],
+  challenges: [],
+  bests: {},
 });
 
 /**
@@ -101,16 +112,32 @@ function migrateV1toV2(old: Partial<SaveV1>): Partial<SaveV2> {
 
 /** Converte un salvataggio della versione 2: tiene tutto e aggiunge identità e amici (vuoti). */
 export function migrateV2(old: Partial<SaveV2>): Save {
-  return normalize({ ...old, version: 3, playerName: "", friends: [] } as Partial<Save>);
+  return migrateV3({ ...old, version: 3, playerName: "", friends: [] } as Partial<SaveV3>);
 }
 
-/** Normalizza un salvataggio v3 letto dal disco: i campi mancanti o rotti prendono il valore iniziale. */
+/** Converte un salvataggio della versione 3: tiene tutto e aggiunge sfide e migliori risultati (vuoti). */
+export function migrateV3(old: Partial<SaveV3>): Save {
+  return normalize({ ...old, version: 4, challenges: [], bests: {} } as Partial<Save>);
+}
+
+function sanitizeBests(raw: unknown): Record<string, Score> {
+  if (!raw || typeof raw !== "object") return {};
+  const out: Record<string, Score> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, Score>)) {
+    if (!/^[1-9]\d{0,4}$/.test(k) || !v || typeof v !== "object") continue;
+    if (Number.isSafeInteger(v.ms) && v.ms > 0 && Number.isSafeInteger(v.mistakes) && v.mistakes >= 0)
+      out[k] = { ms: v.ms, mistakes: v.mistakes };
+  }
+  return out;
+}
+
+/** Normalizza un salvataggio v4 letto dal disco: i campi mancanti o rotti prendono il valore iniziale. */
 export function normalize(parsed: Partial<Save>): Save {
   const base = defaultSave();
   return {
     ...base,
     ...parsed,
-    version: 3,
+    version: 4,
     stars: parsed.stars ?? {},
     daily: parsed.daily ?? {},
     seenChapters: Array.isArray(parsed.seenChapters) ? parsed.seenChapters : [],
@@ -120,6 +147,8 @@ export function normalize(parsed: Partial<Save>): Save {
     playerId: isPlayerId(parsed.playerId) ? parsed.playerId : base.playerId,
     playerName: cleanName(parsed.playerName),
     friends: sanitizeFriends(parsed.friends),
+    challenges: sanitizeChallenges(parsed.challenges),
+    bests: sanitizeBests(parsed.bests),
   };
 }
 
@@ -127,7 +156,8 @@ export function normalize(parsed: Partial<Save>): Save {
 export function parseSave(raw: unknown): Save | null {
   if (!raw || typeof raw !== "object") return null;
   const v = (raw as { version?: unknown }).version;
-  if (v === 3) return normalize(raw as Partial<Save>);
+  if (v === 4) return normalize(raw as Partial<Save>);
+  if (v === 3) return migrateV3(raw as Partial<SaveV3>);
   if (v === 2) return migrateV2(raw as Partial<SaveV2>);
   if (v === 1) return migrateV1(raw as Partial<SaveV1>);
   return null;
@@ -137,7 +167,7 @@ export function loadSave(): Save {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) return parseSave(JSON.parse(raw)) ?? defaultSave();
-    const old = localStorage.getItem(KEY_V2) ?? localStorage.getItem(KEY_V1);
+    const old = localStorage.getItem(KEY_V3) ?? localStorage.getItem(KEY_V2) ?? localStorage.getItem(KEY_V1);
     if (old) {
       const migrated = parseSave(JSON.parse(old));
       if (migrated) {

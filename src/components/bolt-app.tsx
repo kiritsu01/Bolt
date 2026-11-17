@@ -53,7 +53,6 @@ import {
   MAX_NAME,
   cleanName,
   decodeFriend,
-  decodeVersus,
   encodeFriend,
   encodeVersus,
   mergeFriend,
@@ -64,6 +63,21 @@ import {
   type Versus,
 } from "@/game/friends";
 import { formatClock } from "@/game/share";
+import {
+  addChallenge,
+  challengeFromLink,
+  pendingChallenges,
+  resolveChallenge,
+  type Score,
+} from "@/game/challenges";
+
+/** Il risultato migliore tra due: meno errori, a parità il tempo più basso. */
+function better(old: Score | undefined, next: Score): Score {
+  if (!old) return { ms: Math.round(next.ms), mistakes: next.mistakes };
+  if (next.mistakes < old.mistakes || (next.mistakes === old.mistakes && next.ms < old.ms))
+    return { ms: Math.round(next.ms), mistakes: next.mistakes };
+  return old;
+}
 
 /** "2026-11-17" -> "17/11". */
 function shortDay(date: string) {
@@ -94,7 +108,7 @@ type Result = {
   /** Monete guadagnate con questa partita. */
   coins: number;
   /** Confronto con chi ha mandato la Sfida di oggi. */
-  versus?: Versus & { winner: "me" | "other" | "tie" };
+  versus?: Versus & { key: string; winner: "me" | "other" | "tie" };
 };
 type Meta ={ mode: Mode; level: number; spec: Spec };
 
@@ -156,12 +170,10 @@ function formatTime(t: number) {
 
 export function BoltApp({ code, friendCode, versusCode }: { code?: string; friendCode?: string; versusCode?: string }) {
   const challenge = useMemo(() => decodeSpec(code), [code]);
-  // Risultato da battere (?v=): vale solo se la griglia del link è proprio la Sfida di quel giorno.
-  const versus = useMemo<Versus | null>(() => {
-    const v = decodeVersus(versusCode);
-    if (!v || !challenge) return null;
-    return encodeSpec(dailySpec(v.date)) === encodeSpec(challenge) ? v : null;
-  }, [versusCode, challenge]);
+  // Sfida dal link (?c=&v=): vale solo se la griglia è proprio quella del livello o della Sfida di quel giorno.
+  const linkChallenge = useMemo(() => challengeFromLink(code, versusCode), [code, versusCode]);
+  /** Sfida ricevuta che si sta giocando (chiave in save.challenges). */
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const [save, setSave] = useState<Save>(defaultSave);
   /** Richiesta del nome prima di un invito o di una condivisione (null = nessuna). */
   const [askName, setAskName] = useState<null | ((name: string) => void)>(null);
@@ -297,6 +309,14 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
         /* indirizzo non modificabile: pazienza */
       }
     }
+    // Sfida dal link: finisce nell'elenco "Da giocare" (senza doppioni, massimo 30).
+    if (linkChallenge) {
+      const list = addChallenge(loaded.challenges, linkChallenge, loaded.playerId);
+      if (list !== loaded.challenges) {
+        loaded = { ...loaded, challenges: list };
+        writeSave(loaded);
+      }
+    }
     setSave(loaded);
     setSoundEnabled(loaded.sound);
     document.documentElement.lang = loaded.lang;
@@ -362,7 +382,14 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
       sim.mode === "campaign" && sim.level <= 2
         ? 3
         : starsFor(sim.mistakes, sim.hintsUsed, sim.undos);
-    const ms = (sim.finishedAt || performance.now()) - sim.startedAt;
+    const ms = Math.max(500, Math.round((sim.finishedAt || performance.now()) - sim.startedAt));
+    // Sfida ricevuta appena giocata: dall'elenco, oppure (Sfida di oggi) quella di oggi ancora da fare.
+    const played =
+      sim.mode === "challenge" && activeKey
+        ? save.challenges.find((c) => c.key === activeKey)
+        : sim.mode === "daily"
+          ? pendingChallenges(save.challenges).find((c) => c.level === 0 && c.date === today)
+          : undefined;
     const earned =
       sim.mode === "campaign"
         ? coinsFor.stars(stars, save.stars[String(sim.level)] ?? 0)
@@ -378,12 +405,17 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
       log: [...sim.log],
       maxCombo: sim.maxCombo,
       coins: earned,
-      versus:
-        versus &&
-        ((sim.mode === "challenge" && encodeSpec(sim.spec) === encodeSpec(dailySpec(versus.date))) ||
-          (sim.mode === "daily" && versus.date === today))
-          ? { ...versus, winner: versusWinner({ ms, mistakes: sim.mistakes }, versus) }
-          : undefined,
+      versus: played
+        ? {
+            key: played.key,
+            name: played.from.name,
+            id: played.from.id || undefined,
+            level: played.level,
+            date: played.date,
+            ...played.theirs,
+            winner: versusWinner({ ms, mistakes: sim.mistakes }, played.theirs),
+          }
+        : undefined,
     });
     setModal("clear");
     if (stars === 3) setConfetti(Date.now());
@@ -397,8 +429,10 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
           coins: next.coins + coinsFor.stars(stars, next.stars[key] ?? 0),
           unlocked: Math.max(next.unlocked, sim.level + 1),
           stars: { ...next.stars, [key]: Math.max(next.stars[key] ?? 0, stars) },
+          bests: { ...next.bests, [key]: better(next.bests[key], { ms, mistakes: sim.mistakes }) },
         };
       }
+      if (played) next = { ...next, challenges: resolveChallenge(next.challenges, played.key, { ms, mistakes: sim.mistakes }) };
       if (sim.mode === "daily") {
         const old = next.daily[today];
         next = { ...next, coins: next.coins + coinsFor.daily(!old) };
@@ -519,8 +553,9 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     return () => window.removeEventListener("keydown", onKey);
   });
 
-  function begin(mode: Mode, spec: Spec, level: number) {
+  function begin(mode: Mode, spec: Spec, level: number, challengeKey: string | null = null) {
     unlockAudio();
+    setActiveKey(challengeKey);
     playUi();
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const sim = freshSim({
@@ -548,7 +583,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
       begin("rush", rushSpec(0, runSeed), 0);
       return;
     }
-    begin(current.mode, current.spec, current.level);
+    begin(current.mode, current.spec, current.level, current.mode === "challenge" ? activeKey : null);
   }
 
   function goHome() {
@@ -558,9 +593,39 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   }
 
   function share(kind: "level" | "daily" | "rush" | "challenge") {
-    // La Sfida di oggi porta con sé nome, tempo ed errori: serve un nome (chiesto la prima volta).
-    if (kind === "daily" && result) withName((name) => void shareNow(kind, name));
+    // Con un risultato da battere il link porta nome e codice giocatore: serve un nome (chiesto la prima volta).
+    if (kind !== "rush" && result && challengeTarget(kind)) withName((name) => void shareNow(kind, name));
     else void shareNow(kind);
+  }
+
+  /** Livello e giorno della griglia appena giocata, per costruire il link di sfida (null = non condivisibile). */
+  function challengeTarget(kind: "level" | "daily" | "rush" | "challenge") {
+    const sim = simRef.current;
+    if (kind === "daily") return { level: 0, date: today };
+    if (kind === "level" && sim && sim.level >= 3) return { level: sim.level, date: today };
+    if (kind === "challenge" && result?.versus)
+      return { level: result.versus.level ?? 0, date: result.versus.level ? today : result.versus.date };
+    return null;
+  }
+
+  /** Link di sfida: griglia (?c=), risultato da battere (?v=) e link amico (?f=). Riusa i codici di friends.ts. */
+  function challengeLink(name: string, target: { level: number; date: string }, score: Score) {
+    const code = encodeSpec(target.level ? campaignSpec(target.level) : dailySpec(target.date));
+    const params = new URLSearchParams();
+    if (code) params.set("c", code);
+    params.set(
+      "v",
+      encodeVersus({
+        name,
+        id: save.playerId,
+        level: target.level,
+        date: target.date,
+        ms: Math.max(500, Math.round(score.ms)),
+        mistakes: Math.min(999, score.mistakes),
+      }),
+    );
+    params.set("f", encodeFriend(meAsFriend(name)));
+    return `${baseUrl()}?${params.toString()}`;
   }
 
   async function shareNow(kind: "level" | "daily" | "rush" | "challenge", name?: string) {
@@ -568,14 +633,11 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     const sim = simRef.current;
     const spec = sim?.spec;
     const shareCode = kind === "rush" ? null : spec ? encodeSpec(spec) : result?.code ?? null;
-    const params = new URLSearchParams();
-    if (shareCode) params.set("c", shareCode);
-    if (kind === "daily" && name && result) {
-      params.set("v", encodeVersus({ name, date: today, ms: Math.max(500, result.ms), mistakes: Math.min(999, result.mistakes) }));
-      params.set("f", encodeFriend(meAsFriend(name)));
-    }
-    const query = params.toString();
-    const url = `${baseUrl()}${query ? `?${query}` : ""}`;
+    const target = challengeTarget(kind);
+    const url =
+      name && result && target
+        ? challengeLink(name, target, result)
+        : `${baseUrl()}${shareCode ? `?c=${shareCode}` : ""}`;
     const full = shareMessage(lang, {
       kind,
       level: sim?.level,
@@ -878,15 +940,20 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
           ) : null}
 
           <div className="mt-6 flex flex-col gap-3">
-            {challenge && versus ? (
+            {linkChallenge ? (
               <p className="bolt-versus-invite text-sm text-pretty">
-                {t.versusInvite(versus.name, formatClock(versus.ms / 1000), versus.mistakes)}
+                {t.versusInvite(
+                  linkChallenge.from.name,
+                  t.challengeWhat(linkChallenge.level, shortDay(linkChallenge.date)),
+                  formatClock(linkChallenge.theirs.ms / 1000),
+                  linkChallenge.theirs.mistakes,
+                )}
               </p>
             ) : null}
             {challenge ? (
               <button
                 type="button"
-                onClick={() => begin("challenge", challenge, 0)}
+                onClick={() => begin("challenge", challenge, 0, linkChallenge?.key ?? null)}
                 className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-accent font-display text-lg font-extrabold text-accent-ink"
               >
                 <Play className="size-5 fill-current" />

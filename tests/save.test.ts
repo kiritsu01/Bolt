@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseSave } from "../src/game/save";
 
-test("un salvataggio v1 diventa v3 senza perdere nulla", () => {
+test("un salvataggio v1 diventa v4 senza perdere nulla", () => {
   const v1 = {
     version: 1,
     unlocked: 23,
@@ -16,7 +16,7 @@ test("un salvataggio v1 diventa v3 senza perdere nulla", () => {
     clears: 30,
   };
   const s = parseSave(v1)!;
-  assert.equal(s.version, 3);
+  assert.equal(s.version, 4);
   assert.equal(s.unlocked, 23);
   assert.deepEqual(s.stars, v1.stars);
   assert.equal(s.bestRush, 4200);

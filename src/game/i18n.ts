@@ -149,8 +149,10 @@ export const copy = {
     youWin: "Hai vinto!",
     theyWin: (name: string) => `Vince ${name}`,
     tie: "Pareggio",
-    versusInvite: (name: string, time: string, mistakes: number) =>
-      `${name} ha chiuso questa sfida in ${time} con ${mistakes} ${mistakes === 1 ? "errore" : "errori"}. Battilo!`,
+    versusInvite: (name: string, what: string, time: string, mistakes: number) =>
+      `${name} ha chiuso ${what} in ${time} con ${mistakes} ${mistakes === 1 ? "errore" : "errori"}. Battilo!`,
+    challengeWhat: (level: number, date: string) => (level ? `il livello ${level}` : `la Sfida del ${date}`),
+    challengeLabel: (level: number, date: string) => (level ? `Livello ${level}` : `Sfida del ${date}`),
     shareResult: "Condividi",
     shareCard: {
       daily: "Sfida di oggi",
@@ -310,8 +312,10 @@ export const copy = {
     youWin: "You win!",
     theyWin: (name: string) => `${name} wins`,
     tie: "It's a tie",
-    versusInvite: (name: string, time: string, mistakes: number) =>
-      `${name} cleared this bolt in ${time} with ${mistakes} ${mistakes === 1 ? "miss" : "misses"}. Beat that!`,
+    versusInvite: (name: string, what: string, time: string, mistakes: number) =>
+      `${name} cleared ${what} in ${time} with ${mistakes} ${mistakes === 1 ? "miss" : "misses"}. Beat that!`,
+    challengeWhat: (level: number, date: string) => (level ? `level ${level}` : `the ${date} bolt`),
+    challengeLabel: (level: number, date: string) => (level ? `Level ${level}` : `Bolt of ${date}`),
     shareResult: "Share",
     shareCard: {
       daily: "Today's bolt",

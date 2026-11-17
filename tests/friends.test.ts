@@ -157,7 +157,7 @@ test("confronto della Sfida di oggi: codifica, manomissioni e vincitore", () => 
   assert.equal(versusWinner({ ms: 20010, mistakes: 1 }, { ms: 20000, mistakes: 1 }), "tie");
 });
 
-test("conversione del salvataggio: v2 diventa v3 con identità e amici vuoti", () => {
+test("conversione del salvataggio: v2 diventa v4 con identità e amici vuoti", () => {
   const v2 = {
     version: 2,
     unlocked: 34,
@@ -180,7 +180,7 @@ test("conversione del salvataggio: v2 diventa v3 con identità e amici vuoti", (
     installDismissed: true,
   };
   const s = parseSave(v2)!;
-  assert.equal(s.version, 3);
+  assert.equal(s.version, 4);
   for (const k of Object.keys(v2) as Array<keyof typeof v2>) {
     if (k !== "version") assert.deepEqual(s[k as keyof typeof s], v2[k], k);
   }

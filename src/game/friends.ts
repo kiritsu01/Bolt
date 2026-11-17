@@ -26,10 +26,14 @@ export type Friend = {
 
 export type Versus = {
   name: string;
-  /** Giorno della Sfida di oggi (AAAA-MM-GG). */
+  /** Giorno: della Sfida di oggi (level 0) oppure di invio della sfida (livelli). */
   date: string;
   ms: number;
   mistakes: number;
+  /** Codice giocatore di chi sfida (assente nei link vecchi della Sfida di oggi). */
+  id?: string;
+  /** Livello della campagna sfidato; 0 = Sfida di oggi del giorno `date`. */
+  level?: number;
 };
 
 const ID_ALPH = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -153,24 +157,28 @@ export function decodeFriend(code: string | null | undefined, today = todayKey()
   return { id, name, level, stars, streak, date: dayString(day) };
 }
 
-// --- confronto nella Sfida di oggi (?v=) -----------------------------------
+// --- risultato da battere: Sfida di oggi e sfide sui livelli (?v=) --------
+// Formato: nome.giorno.ms.errori[.id.livello].controllo
+// (i link della Sfida di oggi creati prima delle sfide sui livelli non hanno id e livello).
 
 export function encodeVersus(v: Versus) {
-  const body = [
+  const parts = [
     b64url(cleanName(v.name)),
     (dayNumber(v.date) ?? 0).toString(36),
     Math.round(v.ms).toString(36),
     v.mistakes.toString(36),
-  ].join(".");
+  ];
+  if (v.id) parts.push(v.id, (v.level ?? 0).toString(36));
+  const body = parts.join(".");
   return `${body}.${check(body)}`;
 }
 
 export function decodeVersus(code: string | null | undefined, today = todayKey()): Versus | null {
-  if (typeof code !== "string" || code.length > 100) return null;
+  if (typeof code !== "string" || code.length > 120) return null;
   const parts = code.trim().split(".");
-  if (parts.length !== 5) return null;
-  const [name64, dy, msp, mp, sum] = parts;
-  if (sum !== check(parts.slice(0, 4).join("."))) return null;
+  if (parts.length !== 5 && parts.length !== 7) return null;
+  const [name64, dy, msp, mp] = parts;
+  if (parts[parts.length - 1] !== check(parts.slice(0, -1).join("."))) return null;
   const raw = unb64url(name64!);
   const name = raw === null ? null : validName(raw);
   if (!name) return null;
@@ -181,7 +189,14 @@ export function decodeVersus(code: string | null | undefined, today = todayKey()
   if (ms === null || ms < 500) return null;
   const mistakes = num36(mp, 999);
   if (mistakes === null) return null;
-  return { name, date: dayString(day), ms, mistakes };
+  const base = { name, date: dayString(day), ms, mistakes };
+  if (parts.length === 5) return base;
+  const id = parts[4];
+  if (!isPlayerId(id)) return null;
+  const level = num36(parts[5], MAX_LEVEL);
+  // 0 = Sfida di oggi; i livelli 1 e 2 sono il tutorial (griglie fisse, non condivisibili).
+  if (level === null || level === 1 || level === 2) return null;
+  return { ...base, id, level };
 }
 
 /** Chi vince il confronto: meno errori, a parità il tempo più basso. */
