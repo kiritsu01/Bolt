@@ -29,7 +29,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { playBuy, playCalm, playCoin, playMiss, playStar, playUi, playWin, resumeAudio, setSoundEnabled, unlockAudio } from "@/game/audio";
+import { playBuy, playCalm, playCoin, playFanfare, playMiss, playStar, playUi, playWin, resumeAudio, setSoundEnabled, unlockAudio } from "@/game/audio";
 import { coinSteps } from "@/game/celebrate";
 import { celebrationFor, rushCelebration, type Celebration } from "@/game/celebrate";
 import { HAPTIC, vibrate } from "@/game/haptics";
@@ -645,7 +645,13 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     simRef.current = sim;
     setMeta({ mode, level, spec });
     const ch = mode === "campaign" ? chapterIndex(level) : 0;
-    setIntro(ch > 0 && !save.seenChapters.includes(ch) ? ch : null);
+    const newChapter = ch > 0 && !save.seenChapters.includes(ch);
+    setIntro(newChapter ? ch : null);
+    if (newChapter) {
+      // Capitolo nuovo: fanfara breve e vibrazione (successo vero: lo si è raggiunto giocando).
+      playFanfare();
+      vibrate(HAPTIC.chapter);
+    }
     setResult(null);
     setModal(null);
     publish(sim);
@@ -1901,7 +1907,13 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
             {t.chapter} {intro + 1} · {t.newMechanic}
           </span>
           <MechIllustration mech={intro} />
-          <span className="bolt-intro-title">{t.chapters[intro]!.name}</span>
+          <span className="bolt-intro-title" aria-label={t.chapters[intro]!.name}>
+            {[...t.chapters[intro]!.name].map((ch, i) => (
+              <span key={i} className="bolt-intro-letter" style={{ animationDelay: `${180 + i * 45}ms` }} aria-hidden="true">
+                {ch === " " ? "\u00a0" : ch}
+              </span>
+            ))}
+          </span>
           <span className="bolt-intro-text">{t.chapters[intro]!.intro}</span>
           <span className="bolt-intro-cta">{t.tapToStart}</span>
         </button>
