@@ -37,6 +37,14 @@ Usa il test runner di Node (nessuna dipendenza in più). Controlla che ogni live
 ## Profilo
 In alto a sinistra nella home c'è il tuo nome con l'iniziale (o "Scegli il nome"). Toccandolo si apre il Profilo: il nome con cui ti vedono gli amici (modificabile), il codice giocatore, il pulsante per invitare e i record (livello e capitolo raggiunti, livelli completati e a 3 stelle, stelle, serie, record Rush, migliore Sfida di oggi, sfide vinte e perse, amici, monete). I record sono ricavati dal salvataggio: nessun dato nuovo, il formato resta la versione 4.
 
+## Duello live 1 contro 1
+- In home il pulsante **Duello** (accanto a "Livello N") crea una stanza e condivide un link `?d=` (valido 10 minuti). Chi lo apre tocca **Accetta**: conto alla rovescia 3-2-1 sincronizzato e stessa griglia per entrambi (stesso seed).
+- Durante la partita due barre mostrano in tempo reale le frecce rimaste tua e dell'avversario. Vince chi svuota per primo; un errore blocca per 2 secondi. Niente indizi né Annulla.
+- Fine: vittoria con festa, sconfitta neutra, vittoria a tavolino sobria (avversario disconnesso per 15 secondi o uscito). **Rivincita** riparte subito per entrambi con una griglia nuova.
+- Casi limite: link scaduto o creatore uscito → "Il duello è scaduto" con la Sfida di oggi; link aperto da un terzo → "Duello già iniziato"; senza rete o servizio giù → messaggio chiaro. Il resto del gioco resta offline.
+- **Servizio: Supabase Realtime** (solo messaggi e presenza, nessun database; `@supabase/realtime-js`, caricato solo per il duello). Configurazione in `src/duel/config.ts` oppure in fase di build con `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` (indirizzo del progetto e chiave pubblica). Senza configurazione il pulsante mostra "Duelli in arrivo".
+- Codice: `src/duel/protocol.ts` (link, griglia, messaggi, arbitro), `session.ts` (flusso), `transport.ts` (memoria per i test, BroadcastChannel per provarlo tra due schede nella build e2e), `supabase.ts`. Test in `tests/duel.test.ts`.
+
 ## Aspetto, suoni e celebrazioni
 - **Design "neon su inchiostro"**: fondi blu inchiostro saturi, arancio acceso, testo chiaro e caldo. Dietro il gioco tre luci sfumate (accento, viola, magenta; cambiano con tema e capitolo) si spostano lentissime solo con `transform`, fluide anche sui telefoni economici. Tavola "di vetro" con un filo di luce.
 - **Frecce fantasma** al posto della griglia di pallini (`src/game/ghosts.ts`, `src/components/ghost-field.tsx`): 20-30 sagome tenuissime (opacità 0,04-0,08) che salgono piano con leggera rotazione, nel colore del tema o del capitolo. Accelerano e si scaldano verso l'oro con la combo, rallentano un attimo su un errore e schizzano via verso l'alto solo con una festa vera. Un solo canvas dietro tutto, massimo 30 fps, in pausa a pagina nascosta, fermo con movimento ridotto; i test verificano che non competano mai in contrasto con le frecce della griglia.

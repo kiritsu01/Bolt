@@ -1307,3 +1307,267 @@ h1 .text-accent {
     animation: none;
   }
 }
+
+/* --- Duello ------------------------------------------------------------------------ */
+.bolt-home-main {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.bolt-main-btn {
+  display: flex;
+  min-height: 4rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  padding: 0.5rem;
+  font-weight: 800;
+}
+.bolt-main-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1.125rem;
+  white-space: nowrap;
+}
+.bolt-main-sub {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.75rem;
+  font-weight: 600;
+  opacity: 0.75;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Il Duello ha un'identità propria: elettrico, dal colore d'accento al viola delle luci. */
+.bolt-duel-btn {
+  position: relative;
+  overflow: hidden;
+  color: #fff;
+  background: linear-gradient(135deg, var(--glow-b), var(--glow-c));
+  box-shadow:
+    0 10px 30px -10px var(--glow-b),
+    inset 0 1px 0 rgb(255 255 255 / 0.3);
+}
+.bolt-duel-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.28) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: bolt-duel-shine 3.6s 1s ease-in-out infinite;
+}
+@keyframes bolt-duel-shine {
+  0%,
+  60% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
+}
+.bolt-duel-screen {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.5rem 0.5rem;
+  text-align: center;
+}
+.bolt-duel-icon {
+  display: flex;
+  width: 5.5rem;
+  height: 5.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1.75rem;
+  color: #fff;
+  background: linear-gradient(135deg, var(--glow-b), var(--glow-c));
+  box-shadow: 0 0 40px -8px var(--glow-b);
+}
+.bolt-duel-title {
+  max-width: 20rem;
+  font-family: var(--font-display);
+  font-size: 1.875rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+.bolt-duel-text {
+  max-width: 19rem;
+  color: var(--color-muted);
+  text-wrap: pretty;
+}
+.bolt-duel-actions {
+  display: flex;
+  width: 100%;
+  max-width: 20rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.bolt-duel-pulse {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: #fff;
+  animation: bolt-duel-pulse 1.4s ease-in-out infinite;
+}
+@keyframes bolt-duel-pulse {
+  0%,
+  100% {
+    transform: scale(0.7);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+}
+.bolt-duel-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding-bottom: 0.5rem;
+}
+.bolt-duel-row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr 3.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.bolt-duel-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bolt-duel-track {
+  position: relative;
+  height: 0.625rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--color-line);
+}
+.bolt-duel-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--glow-b), var(--glow-c));
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.bolt-duel-row.is-me .bolt-duel-fill {
+  background: var(--color-accent);
+}
+.bolt-duel-left {
+  text-align: right;
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.bolt-duel-row.is-blocked .bolt-duel-left {
+  color: var(--color-muted);
+  font-size: 0.6875rem;
+}
+.bolt-duel-row.is-blocked .bolt-duel-track {
+  animation: bolt-duel-flash 400ms ease-out 2;
+}
+@keyframes bolt-duel-flash {
+  50% {
+    background: #e5383b;
+  }
+}
+.bolt-forfeit {
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.875rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.bolt-countdown {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--color-bg) 45%, transparent);
+}
+.bolt-count-num {
+  font-family: var(--font-display);
+  font-size: 7rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 40px var(--glow-b);
+  animation: bolt-count 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.bolt-count-num.is-go {
+  font-size: 4.5rem;
+  color: var(--color-accent);
+  text-shadow: 0 0 40px var(--color-accent);
+}
+@keyframes bolt-count {
+  0% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+}
+.bolt-duel-block {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-bg) 60%, transparent);
+}
+.bolt-duel-ring {
+  display: flex;
+  width: 6rem;
+  height: 6rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 2.25rem;
+  font-weight: 800;
+  color: #fff;
+  background:
+    radial-gradient(closest-side, var(--color-surface) 78%, transparent 80%),
+    conic-gradient(#e5383b calc(var(--k) * 360deg), var(--color-line) 0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .bolt-duel-btn::after,
+  .bolt-duel-pulse,
+  .bolt-count-num,
+  .bolt-duel-row.is-blocked .bolt-duel-track {
+    animation: none;
+  }
+}
+.inline-flex {
+  display: inline-flex;
+}
+.size-9 {
+  width: 2.25rem;
+  height: 2.25rem;
+}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import {
+  Zap,
   Check,
   Pencil,
   User,
@@ -35,6 +36,11 @@ import { celebrationFor, rushCelebration, type Celebration } from "@/game/celebr
 import { HAPTIC, vibrate } from "@/game/haptics";
 import { ghostBurst, setGhostHeat } from "@/game/ghosts";
 import { GhostField } from "@/components/ghost-field";
+import { DuelBar, DuelBlock, DuelCountdown, DuelLobby, ForfeitBanner } from "@/components/duel-ui";
+import { duelBackend, SUPABASE_ANON_KEY, SUPABASE_URL } from "@/duel/config";
+import { decodeInvite, duelSpec, encodeInvite, newRoomId, type DuelInvite } from "@/duel/protocol";
+import { DuelSession, type DuelView } from "@/duel/session";
+import { createTransport } from "@/duel/transport";
 import { drawArrow, drawBoard, fitCanvas, layoutBoard, readPalette, type Palette } from "@/game/draw";
 import { copy, type Lang } from "@/game/i18n";
 import { emojiRow, shareMessage } from "@/game/share";
@@ -99,8 +105,8 @@ function shortDay(date: string) {
   return m && d ? `${d}/${m}` : date;
 }
 
-type Phase = "home" | "levels" | "play" | "shop" | "friends" | "challenges" | "profile";
-type Modal = null | "clear" | "over" | "hints";
+type Phase = "home" | "levels" | "play" | "shop" | "friends" | "challenges" | "profile" | "duel";
+type Modal = null | "clear" | "over" | "hints" | "duel";
 type Hud = {
   left: number;
   combo: number;
@@ -184,7 +190,17 @@ function formatTime(t: number) {
   return t.toFixed(1);
 }
 
-export function BoltApp({ code, friendCode, versusCode }: { code?: string; friendCode?: string; versusCode?: string }) {
+export function BoltApp({
+  code,
+  friendCode,
+  versusCode,
+  duelCode,
+}: {
+  code?: string;
+  friendCode?: string;
+  versusCode?: string;
+  duelCode?: string;
+}) {
   const challenge = useMemo(() => decodeSpec(code), [code]);
   // Sfida dal link (?c=&v=): vale solo se la griglia è proprio quella del livello o della Sfida di quel giorno.
   const linkChallenge = useMemo(() => challengeFromLink(code, versusCode), [code, versusCode]);
@@ -195,6 +211,17 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   /** Richiesta del nome prima di un invito o di una condivisione (null = nessuna). */
   const [askName, setAskName] = useState<null | ((name: string) => void)>(null);
   const friendDoneRef = useRef(false);
+  // --- Duello live ---
+  const [duelView, setDuelView] = useState<DuelView | null>(null);
+  /** Invito del duello: creato da me (host) o arrivato dal link ?d= (ospite). */
+  const [duelInvite, setDuelInvite] = useState<DuelInvite | null>(null);
+  const duelRef = useRef<DuelSession | null>(null);
+  const duelRoundRef = useRef(0);
+  const duelTotalRef = useRef(0);
+  const duelSentRef = useRef("");
+  /** Aperto da un link di duello: niente pannello di benvenuto sopra la schermata del duello. */
+  const [arrivalDuel, setArrivalDuel] = useState(false);
+  const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
   /** Record del Rush all'inizio della partita: serve a capire se il punteggio finale è davvero un record. */
   const bestAtStartRef = useRef(0);
   /** Quanto festeggiare la partita appena chiusa (solo i successi veri). */
@@ -381,6 +408,23 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
         writeSave(loaded);
       }
     }
+    // Link di duello (?d=): si apre la schermata d'invito (ci si collega solo con "Accetta").
+    if (duelCode) {
+      const inv = decodeInvite(duelCode);
+      if (inv && inv.hostId !== loaded.playerId) {
+        setDuelInvite(inv);
+        setPhase("duel");
+        setDuelView(null);
+        setArrivalDuel(true);
+      } else if (!inv) setToast(copy[loaded.lang].friendBad);
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("d");
+        window.history.replaceState(null, "", url.toString());
+      } catch {
+        /* pazienza */
+      }
+    }
     setSave(loaded);
     setSaveReady(true);
     setSoundEnabled(loaded.sound);
@@ -439,11 +483,26 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
       stuck: sim.stuck && !sim.resolved,
       hot: sim.combo >= 2 && sim.heat > 0.05,
     });
+    if (sim.mode === "duel" && duelRef.current) {
+      const blocked = sim.blockedUntil > performance.now() && sim.blockedUntil > (duelRef.current.view.goAt ?? 0);
+      const key = `${sim.board.arrows.length}|${blocked}`;
+      if (key !== duelSentRef.current) {
+        duelSentRef.current = key;
+        duelRef.current.progress(sim.board.arrows.length, duelTotalRef.current, blocked);
+      }
+    }
   };
 
   hudRef.current = publish;
 
   clearRef.current = (sim) => {
+    if (sim.mode === "duel") {
+      // Duello: si comunica il tempo dal "Via!"; il verdetto arriva dalla sessione.
+      const go = duelRef.current?.view.goAt ?? sim.startedAt;
+      duelRef.current?.done((sim.finishedAt || performance.now()) - go);
+      publish(sim);
+      return;
+    }
     const stars =
       sim.mode === "campaign" && sim.level <= 2
         ? 3
@@ -572,6 +631,40 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   }, [save.theme]);
 
   useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
+  }, []);
+
+  // Il duello guida la partita: nuovo round -> nuova griglia; verdetto -> pannello finale.
+  useEffect(() => {
+    const v = duelView;
+    if (!v) return;
+    if ((v.phase === "countdown" || v.phase === "playing") && v.goAt !== null && v.round !== duelRoundRef.current) {
+      duelRoundRef.current = v.round;
+      beginDuelRound(v);
+      return;
+    }
+    if (v.phase === "finished" && v.result && modalRef.current !== "duel") {
+      const sim = simRef.current;
+      if (sim) sim.resolved = true;
+      setModal("duel");
+      // Festa solo per una vittoria giocata; a tavolino o in sconfitta niente coriandoli.
+      if (v.result.winner === "me" && !v.result.forfeit) {
+        setConfetti(Date.now());
+        ghostBurst();
+        playWin();
+        vibrate(HAPTIC.win);
+      } else playCalm();
+    }
+  }, [duelView]);
+
+  useEffect(() => {
     paletteRef.current = { ...readPalette(rootRef.current ?? undefined), arrow: save.arrowStyle };
   }, [phase, accent, save.theme, save.arrowStyle]);
 
@@ -668,6 +761,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   function restart() {
     const current = simRef.current;
     if (!current) return;
+    if (current.mode === "duel") return;
     if (current.mode === "rush") {
       const runSeed = Math.floor(Math.random() * 1e9) >>> 0;
       begin("rush", rushSpec(0, runSeed), 0);
@@ -678,9 +772,108 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
 
   function goHome() {
     playUi();
+    endDuel();
     setPhase("home");
     setModal(null);
   }
+
+  // --- Duello -----------------------------------------------------------------
+
+  function endDuel() {
+    duelRef.current?.leave();
+    duelRef.current = null;
+    duelRoundRef.current = 0;
+    setDuelView(null);
+  }
+
+  async function openSession(role: "host" | "guest", inv: DuelInvite, name: string) {
+    endDuel();
+    const backend = duelBackend();
+    if (backend === "off") return null;
+    let transport;
+    try {
+      transport = await createTransport(backend, SUPABASE_URL, SUPABASE_ANON_KEY);
+    } catch {
+      setDuelView({ ...emptyDuelView(role), phase: "unavailable" });
+      return null;
+    }
+    const session = new DuelSession({
+      transport,
+      me: { id: save.playerId, name },
+      role,
+      invite: inv,
+      now: () => performance.now(),
+      schedule: (fn, ms) => {
+        const id = window.setTimeout(fn, ms);
+        return () => window.clearTimeout(id);
+      },
+      onChange: (v) => {
+        if (duelRef.current === session) setDuelView(v);
+      },
+    });
+    duelRef.current = session;
+    setDuelView(session.view);
+    return session;
+  }
+
+  function duelLink(inv: DuelInvite, name: string) {
+    const params = new URLSearchParams();
+    params.set("d", encodeInvite(inv));
+    params.set("f", encodeFriend(meAsFriend(name)));
+    return `${baseUrl()}?${params.toString()}`;
+  }
+
+  function shareDuel(inv: DuelInvite, name: string) {
+    const url = duelLink(inv, name);
+    deliver(`${t.duelShareText(name)}\n${url}`, url, t.duelShareTitle);
+  }
+
+  /** "Duello" in home: crea la stanza, condividi il link, aspetta l'amico. */
+  function startDuel() {
+    unlockAudio();
+    playUi();
+    setPhase("duel");
+    setModal(null);
+    setDuelInvite(null);
+    setDuelView(null);
+    if (duelBackend() === "off" || !navigator.onLine) return;
+    withName((name) => {
+      const inv: DuelInvite = { room: newRoomId(), createdAt: Date.now(), hostId: save.playerId, hostName: name };
+      setDuelInvite(inv);
+      shareDuel(inv, name);
+      void openSession("host", inv, name).then((session) => session?.host());
+    });
+  }
+
+  /** Ospite: "Accetta". */
+  function acceptDuel() {
+    if (!duelInvite) return;
+    unlockAudio();
+    playUi();
+    withName((name) => {
+      void openSession("guest", duelInvite, name).then((session) => session?.accept());
+    });
+  }
+
+  /** Nuovo round del duello: stessa griglia per entrambi, tocchi bloccati fino al "Via!". */
+  function beginDuelRound(v: DuelView) {
+    begin("duel", duelSpec(v.seed), 0);
+    const sim = simRef.current;
+    if (!sim || v.goAt === null) return;
+    sim.blockedUntil = v.goAt;
+    sim.startedAt = v.goAt;
+    sim.coach = false;
+    duelTotalRef.current = sim.board.arrows.length;
+    duelSentRef.current = "";
+    setStrike(0);
+  }
+
+  function cancelDuel() {
+    endDuel();
+    setDuelInvite(null);
+    goHome();
+  }
+
 
   function share(kind: "level" | "daily" | "rush" | "challenge") {
     // Ogni link condiviso porta il tuo nome (link amico), più il risultato da battere quando la griglia
@@ -1113,19 +1306,30 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                 {t.playChallenge}
               </button>
             ) : null}
-            <button
-              type="button"
-              onClick={() => begin("campaign", campaignSpec(save.unlocked), save.unlocked)}
-              className={
-                challenge
-                  ? "flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface font-display text-base font-semibold"
-                  : "flex h-14 items-center justify-center gap-2 rounded-2xl bg-accent font-display text-lg font-extrabold text-accent-ink"
-              }
-            >
-              <Play className="size-5 fill-current" />
-              {t.continue} {save.unlocked}
-              <span className="bolt-btn-sub">· {t.chapters[chapterIndex(save.unlocked)]!.name}</span>
-            </button>
+            <div className="bolt-home-main">
+              <button
+                type="button"
+                onClick={() => begin("campaign", campaignSpec(save.unlocked), save.unlocked)}
+                className={
+                  challenge
+                    ? "bolt-main-btn rounded-2xl border border-line bg-surface font-display"
+                    : "bolt-main-btn rounded-2xl bg-accent font-display text-accent-ink"
+                }
+              >
+                <span className="bolt-main-label">
+                  <Play className="size-5 fill-current" />
+                  {t.continue} {save.unlocked}
+                </span>
+                <span className="bolt-main-sub">{t.chapters[chapterIndex(save.unlocked)]!.name}</span>
+              </button>
+              <button type="button" onClick={startDuel} className="bolt-main-btn bolt-duel-btn rounded-2xl font-display">
+                <span className="bolt-main-label">
+                  <Zap className="size-5 fill-current" />
+                  {t.duel}
+                </span>
+                <span className="bolt-main-sub">1 vs 1 live</span>
+              </button>
+            </div>
             <button
               type="button"
               onClick={() => begin("daily", dailySpec(today), 0)}
@@ -1503,6 +1707,31 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
         </div>
       ) : null}
 
+      {phase === "duel" ? (
+        <div className="safe-top safe-bot flex min-h-0 flex-1 flex-col">
+          <DuelLobby
+            t={t}
+            view={duelView ?? (duelInvite && duelInvite.hostId !== save.playerId ? guestPreview(duelInvite) : null)}
+            hostName={duelInvite?.hostName ?? ""}
+            backend={duelBackend()}
+            online={online}
+            onAccept={acceptDuel}
+            onCancel={cancelDuel}
+            onResend={() => duelInvite && shareDuel(duelInvite, save.playerName || duelInvite.hostName)}
+            onDaily={() => {
+              endDuel();
+              setDuelInvite(null);
+              begin("daily", dailySpec(today), 0);
+            }}
+            onLevel={() => {
+              endDuel();
+              setDuelInvite(null);
+              begin("campaign", campaignSpec(save.unlocked), save.unlocked);
+            }}
+          />
+        </div>
+      ) : null}
+
       {phase === "profile" ? (
         <div className="safe-top safe-bot flex min-h-0 flex-1 flex-col">
           <header className="flex h-14 items-center gap-2">
@@ -1626,7 +1855,9 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
             </IconButton>
             <div className="min-w-0 flex-1">
               <p className="truncate font-display text-base font-extrabold">
-                {meta.mode === "campaign"
+                {meta.mode === "duel"
+                  ? `${t.duel} · ${duelView?.opponent?.name ?? ""}`
+                  : meta.mode === "campaign"
                   ? `${t.continue} ${meta.level}`
                   : meta.mode === "daily"
                     ? t.daily
@@ -1641,7 +1872,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                 {hud.combo > 1 ? ` · ${t.combo} x${hud.combo}` : ""}
               </p>
             </div>
-            {meta.mode === "rush" ? (
+            {meta.mode === "duel" ? null : meta.mode === "rush" ? (
               <p className="font-display text-3xl font-extrabold text-accent tabular-nums">{formatTime(hud.time)}</p>
             ) : (
               <IconButton label={t.retry} onClick={restart}>
@@ -1653,7 +1884,22 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
             </IconButton>
           </header>
 
-          {hud.stuck ? (
+          {meta.mode === "duel" && duelView ? (
+            <>
+              <DuelBar
+                t={t}
+                myLeft={hud.left}
+                myTotal={duelTotalRef.current || hud.left}
+                myBlocked={(simRef.current?.blockedUntil ?? 0) > performance.now() && duelView.phase === "playing"}
+                oppName={duelView.opponent?.name ?? "?"}
+                oppLeft={duelView.oppLeft}
+                oppTotal={duelView.oppTotal}
+                oppBlocked={duelView.oppBlocked}
+              />
+              {duelView.forfeitAt ? <ForfeitBanner t={t} name={duelView.opponent?.name ?? "?"} at={duelView.forfeitAt} /> : null}
+              {duelView.waitingResult ? <p className="bolt-forfeit is-wait">{t.duelWaitResult}</p> : null}
+            </>
+          ) : hud.stuck ? (
             <p className="pb-2 text-center text-sm font-semibold text-pretty text-accent">{t.stuck}</p>
           ) : hud.coach ? (
             <p className="pb-2 text-center text-sm text-pretty text-muted">
@@ -1681,6 +1927,10 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
               </p>
             ) : null}
             {confetti ? <Confetti burstKey={confetti} /> : null}
+            {meta.mode === "duel" && duelView?.goAt ? <DuelCountdown key={duelView.round} t={t} goAt={duelView.goAt} /> : null}
+            {meta.mode === "duel" && duelView?.phase === "playing" && simRef.current && simRef.current.blockedUntil > performance.now() ? (
+              <DuelBlock until={simRef.current.blockedUntil} />
+            ) : null}
             {modal ? (
               <div className="scrim bolt-sheet-wrap">
                 <div className="bolt-rise bolt-sheet rounded-card bg-surface p-6">
@@ -1823,6 +2073,53 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                       </div>
                     </>
                   ) : null}
+                  {modal === "duel" && duelView?.result ? (
+                    <>
+                      {duelView.result.winner === "me" && !duelView.result.forfeit ? (
+                        <p className="bolt-result-title is-party">{t.duelWon}</p>
+                      ) : (
+                        <p className="text-center font-display text-2xl font-extrabold">
+                          {duelView.result.winner === "me" ? t.duelForfeitTitle : t.duelLost(duelView.opponent?.name ?? "?")}
+                        </p>
+                      )}
+                      {duelView.result.forfeit ? (
+                        <p className="mt-2 text-center text-sm text-muted">{t.duelForfeitText(duelView.opponent?.name ?? "?")}</p>
+                      ) : (
+                        <div className="bolt-versus-grid mt-4 tabular-nums">
+                          <div className={duelView.result.winner === "me" ? "is-win" : undefined}>
+                            <span>{t.duelYou}</span>
+                            <strong>{duelView.result.myMs !== null ? formatClock(duelView.result.myMs / 1000) : "–"}</strong>
+                          </div>
+                          <div className={duelView.result.winner === "opponent" ? "is-win" : undefined}>
+                            <span className="truncate">{duelView.opponent?.name}</span>
+                            <strong>{duelView.result.oppMs !== null ? formatClock(duelView.result.oppMs / 1000) : "–"}</strong>
+                          </div>
+                        </div>
+                      )}
+                      <div className="bolt-sheet-actions mt-5 flex flex-col gap-2">
+                        <button
+                          type="button"
+                          disabled={duelView.opponentGone}
+                          onClick={() => {
+                            unlockAudio();
+                            playWhoosh();
+                            vibrate(HAPTIC.tapHot);
+                            setStrike(Date.now());
+                            duelRef.current?.rematch();
+                          }}
+                          className={`flex h-12 items-center justify-center gap-2 rounded-2xl bg-accent font-display font-extrabold text-accent-ink disabled:opacity-40 ${duelView.result.winner !== "me" && !duelView.opponentGone ? "bolt-rematch-call" : ""}`}
+                        >
+                          <span key={strike} className={strike ? "bolt-strike" : undefined}>
+                            <Swords className="size-4" />
+                          </span>
+                          {duelView.opponentGone ? t.duelOppGone(duelView.opponent?.name ?? "?") : t.rematch}
+                        </button>
+                        <button type="button" onClick={goHome} className="h-11 text-sm font-semibold text-muted">
+                          {t.home}
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
                   {modal === "hints" ? (
                     <>
                       <p className="text-center font-display text-2xl font-extrabold">{t.hintsOut}</p>
@@ -1882,7 +2179,9 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
           </div>
 
           <footer className="flex items-center gap-2 py-3">
-            {meta.mode === "rush" ? (
+            {meta.mode === "duel" ? (
+              <p className="flex-1 text-sm text-pretty text-muted">{t.duelInviteHint}</p>
+            ) : meta.mode === "rush" ? (
               <p className="flex-1 font-display text-2xl font-extrabold tabular-nums">{hud.score}</p>
             ) : (
               <>
@@ -1958,7 +2257,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
         />
       ) : null}
 
-      {arrival && phase === "home" ? (
+      {arrival && phase === "home" && !arrivalDuel ? (
         <div className="scrim bolt-sheet-wrap bolt-sheet-top" onClick={(e) => e.target === e.currentTarget && setArrival(null)}>
           <div
             className="bolt-rise bolt-sheet rounded-card bg-surface p-6 text-center"
@@ -2472,4 +2771,28 @@ function ArrowPreview({ style, theme }: { style: ArrowStyle; theme: ThemeId }) {
     drawArrow(fit.ctx, fit.w / 2 + cell * 0.6, fit.h / 2, cell, 0, c.accent, 1, 1, 0, style, c.surface);
   }, [style, theme]);
   return <canvas ref={ref} className="bolt-shop-art" aria-hidden="true" />;
+}
+
+function emptyDuelView(role: "host" | "guest"): DuelView {
+  return {
+    phase: "connecting",
+    role,
+    opponent: null,
+    round: 0,
+    seed: 0,
+    goAt: null,
+    oppLeft: null,
+    oppTotal: null,
+    oppBlocked: false,
+    forfeitAt: null,
+    result: null,
+    opponentGone: false,
+    waitingResult: false,
+  };
+}
+
+/** Prima di "Accetta" l'ospite vede l'invito (o "scaduto"), senza collegarsi. */
+function guestPreview(inv: DuelInvite): DuelView {
+  const expired = Date.now() - inv.createdAt > 10 * 60_000;
+  return { ...emptyDuelView("guest"), phase: expired ? "expired" : "invited", opponent: { id: inv.hostId, name: inv.hostName } };
 }

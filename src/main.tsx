@@ -12,7 +12,7 @@ import { initPwa } from "@/game/pwa";
 
 initPwa();
 
-// Parametri dei link: ?c= sfida (griglia), ?f= amico, ?v= risultato della Sfida di oggi da battere.
+// Parametri dei link: ?c= sfida (griglia), ?f= amico, ?v= risultato da battere, ?d= invito a duello.
 function readParam(name: string): string | undefined {
   try {
     return new URLSearchParams(window.location.search).get(name) ?? undefined;
@@ -23,6 +23,6 @@ function readParam(name: string): string | undefined {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BoltApp code={readParam("c")} friendCode={readParam("f")} versusCode={readParam("v")} />
+    <BoltApp code={readParam("c")} friendCode={readParam("f")} versusCode={readParam("v")} duelCode={readParam("d")} />
   </StrictMode>,
 );

@@ -212,6 +212,12 @@ export function playClear() {
   tone(784, 0.18, "triangle", 0.08, { delay: 0.06 });
 }
 
+/** Conto alla rovescia del duello: un tono per numero (3, 2, 1), poi il "Via!" più alto. */
+export function playCount(n: number) {
+  tone(n > 0 ? 523.25 : 1046.5, n > 0 ? 0.12 : 0.28, "triangle", n > 0 ? 0.09 : 0.11);
+  if (n === 0) tone(1567.98, 0.25, "sine", 0.05, { delay: 0.02 });
+}
+
 export function playUi() {
   tone(640, 0.045, "sine", 0.04);
 }
