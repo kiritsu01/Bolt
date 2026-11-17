@@ -29,7 +29,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { playBuy, playCalm, playCoin, playFanfare, playMiss, playStar, playUi, playWin, resumeAudio, setSoundEnabled, unlockAudio } from "@/game/audio";
+import { playBuy, playCalm, playCoin, playFanfare, playWhoosh, playMiss, playStar, playUi, playWin, resumeAudio, setSoundEnabled, unlockAudio } from "@/game/audio";
 import { coinSteps } from "@/game/celebrate";
 import { celebrationFor, rushCelebration, type Celebration } from "@/game/celebrate";
 import { HAPTIC, vibrate } from "@/game/haptics";
@@ -199,6 +199,8 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   const [celebration, setCelebration] = useState<Celebration | null>(null);
   /** Il conteggio delle stelle è finito: possono partire le monete. */
   const [starsDone, setStarsDone] = useState(false);
+  /** Ultimo tocco su Rivincita (per far ripartire l'animazione delle spade). */
+  const [strike, setStrike] = useState(0);
   /** Pannello di benvenuto quando si apre il link di un amico (invito o sfida). */
   const [arrival, setArrival] = useState<{ friend: Friend | null; challenge: Challenge | null } | null>(null);
   /** Pannello di condivisione aperto (testo completo, link, titolo). */
@@ -1761,14 +1763,25 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                       <div className="bolt-sheet-actions mt-5 flex flex-col gap-2">
                         <button
                           type="button"
-                          onClick={() =>
-                            void share(
-                              meta.mode === "daily" ? "daily" : meta.mode === "challenge" ? "challenge" : "level",
-                            )
-                          }
+                          onClick={() => {
+                            if (result.versus) {
+                              // Rivincita: le spade "colpiscono" con un colpo d'aria.
+                              unlockAudio();
+                              playWhoosh();
+                              vibrate(HAPTIC.tapHot);
+                              setStrike(Date.now());
+                            }
+                            void share(meta.mode === "daily" ? "daily" : meta.mode === "challenge" ? "challenge" : "level");
+                          }}
                           className={`flex h-12 items-center justify-center gap-2 rounded-2xl bg-accent font-display font-extrabold text-accent-ink ${result.versus && result.versus.winner !== "me" ? "bolt-rematch-call" : ""}`}
                         >
-                          {result.versus ? <Swords className="size-4" /> : <Share2 className="size-4" />}
+                          {result.versus ? (
+                            <span key={strike} className={strike ? "bolt-strike" : undefined}>
+                              <Swords className="size-4" />
+                            </span>
+                          ) : (
+                            <Share2 className="size-4" />
+                          )}
                           {result.versus ? t.rematch : t.share}
                         </button>
                         {meta.mode === "campaign" ? (
