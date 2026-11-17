@@ -69,6 +69,8 @@ import {
   challengeFromLink,
   doneChallenges,
   pendingChallenges,
+  tally,
+  type Tally,
   type Challenge,
   resolveChallenge,
   type Score,
@@ -285,6 +287,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   const pendingList = pendingChallenges(save.challenges);
   const doneList = doneChallenges(save.challenges);
   const pendingCount = pendingList.length;
+  const tallies = tally(save.challenges);
 
   useEffect(() => {
     let loaded = loadSave();
@@ -1214,6 +1217,9 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                           </span>
                           {row.me ? null : <span className="bolt-friend-date">{t.updatedOn(shortDay(row.date))}</span>}
                         </p>
+                        {!row.me && tallies.find((x) => x.id === row.id) ? (
+                          <TallyLine row={tallies.find((x) => x.id === row.id)!} t={t} small />
+                        ) : null}
                       </div>
                       <p className="bolt-friend-level tabular-nums">
                         <span>{t.levelShort}</span>
@@ -1263,6 +1269,18 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
             <h2 className="font-display text-xl font-extrabold">{t.challengesTitle}</h2>
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+            {tallies.length ? (
+              <>
+                <h3 className="bolt-shop-title mt-0">{t.tallyTitle}</h3>
+                <ul className="bolt-tally-list">
+                  {tallies.map((row) => (
+                    <li key={row.key}>
+                      <TallyLine row={row} t={t} />
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : null}
             <h3 className="bolt-shop-title">
               {t.toPlay}
               {pendingCount ? <span className="bolt-badge ml-2">{pendingCount}</span> : null}
@@ -1734,6 +1752,17 @@ function MechIllustration({ mech }: { mech: number }) {
         </g>
       ) : null}
     </svg>
+  );
+}
+
+/** "Tu 3 - 2 Giulia": bilancio delle sfide concluse contro un amico. */
+function TallyLine({ row, t, small = false }: { row: Tally; t: (typeof copy)[Lang]; small?: boolean }) {
+  const lead = row.wins > row.losses ? "is-ahead" : row.wins < row.losses ? "is-behind" : "";
+  return (
+    <p className={`bolt-tally ${lead} ${small ? "is-small" : ""}`}>
+      <span className="bolt-tally-score tabular-nums">{t.tallyLine(row.wins, row.losses, row.name)}</span>
+      {row.ties ? <span className="bolt-tally-ties">{t.tallyTies(row.ties)}</span> : null}
+    </p>
   );
 }
 

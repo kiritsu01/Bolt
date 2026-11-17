@@ -728,3 +728,44 @@
   box-shadow: inset 0 0 0 1px var(--color-line);
   color: var(--color-muted);
 }
+
+/* --- Bilancio per amico ------------------------------------------------------ */
+.mt-0 {
+  margin-top: 0;
+}
+.bolt-tally-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+}
+.bolt-tally {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-surface);
+}
+.bolt-tally.is-ahead {
+  border-color: var(--color-accent);
+}
+.bolt-tally-score {
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.bolt-tally.is-ahead .bolt-tally-score {
+  color: var(--color-accent);
+}
+.bolt-tally-ties {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+.bolt-tally.is-small {
+  min-height: 0;
+  margin-top: 0.25rem;
+  padding: 0.0625rem 0.5rem;
+  font-size: 0.8125rem;
+}

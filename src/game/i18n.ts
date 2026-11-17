@@ -165,6 +165,9 @@ export const copy = {
     tiedShort: "Pari",
     pendingBadge: (n: number) => `${n} ${n === 1 ? "sfida da giocare" : "sfide da giocare"}`,
     errShort: "err.",
+    tallyTitle: "Bilancio",
+    tallyLine: (wins: number, losses: number, name: string) => `Tu ${wins} - ${losses} ${name}`,
+    tallyTies: (n: number) => (n === 1 ? "1 pari" : `${n} pari`),
     shareResult: "Condividi",
     shareCard: {
       daily: "Sfida di oggi",
@@ -340,6 +343,9 @@ export const copy = {
     tiedShort: "Tie",
     pendingBadge: (n: number) => `${n} ${n === 1 ? "challenge to play" : "challenges to play"}`,
     errShort: "miss",
+    tallyTitle: "Head to head",
+    tallyLine: (wins: number, losses: number, name: string) => `You ${wins} - ${losses} ${name}`,
+    tallyTies: (n: number) => (n === 1 ? "1 tie" : `${n} ties`),
     shareResult: "Share",
     shareCard: {
       daily: "Today's bolt",
