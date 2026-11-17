@@ -581,3 +581,69 @@
   padding: 2.5rem 1rem;
   text-align: center;
 }
+
+/* --- Confronto nella Sfida di oggi ------------------------------------------ */
+.bolt-versus {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: 1rem;
+  background: var(--color-bg);
+  text-align: center;
+}
+.bolt-versus-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.bolt-versus-grid {
+  margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+.bolt-versus-grid > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.375rem;
+  border-radius: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+}
+.bolt-versus-grid > div.is-win {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-fg);
+}
+.bolt-versus-grid strong {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--color-fg);
+}
+.bolt-versus-grid > div > span {
+  max-width: 100%;
+}
+.bolt-versus-verdict {
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--color-accent);
+}
+.bolt-versus-invite {
+  padding: 0.75rem 1rem;
+  border-radius: 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-accent);
+  color: var(--color-fg);
+}
+@media (max-height: 500px) {
+  .bolt-versus {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+  }
+}

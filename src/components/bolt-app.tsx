@@ -47,7 +47,20 @@ import { freshSim, hintShowing, step, tapCell, useHint, useUndo, type Mode, type
 import { hintsLeft, msUntilMidnight, spendHint } from "@/game/hints";
 import { showRewardedAd } from "@/game/ads";
 import { installMode, onPwaChange, promptInstall } from "@/game/pwa";
-import { MAX_NAME, cleanName, decodeFriend, encodeFriend, mergeFriend, ranking, type Friend } from "@/game/friends";
+import {
+  MAX_NAME,
+  cleanName,
+  decodeFriend,
+  decodeVersus,
+  encodeFriend,
+  encodeVersus,
+  mergeFriend,
+  ranking,
+  versusWinner,
+  type Friend,
+  type Versus,
+} from "@/game/friends";
+import { formatClock } from "@/game/share";
 
 /** "2026-11-17" -> "17/11". */
 function shortDay(date: string) {
@@ -77,8 +90,10 @@ type Result = {
   maxCombo: number;
   /** Monete guadagnate con questa partita. */
   coins: number;
+  /** Confronto con chi ha mandato la Sfida di oggi. */
+  versus?: Versus & { winner: "me" | "other" | "tie" };
 };
-type Meta = { mode: Mode; level: number; spec: Spec };
+type Meta ={ mode: Mode; level: number; spec: Spec };
 
 const FALLBACK: Palette = {
   fg: "#f3efe4",
@@ -138,6 +153,12 @@ function formatTime(t: number) {
 
 export function BoltApp({ code, friendCode, versusCode }: { code?: string; friendCode?: string; versusCode?: string }) {
   const challenge = useMemo(() => decodeSpec(code), [code]);
+  // Risultato da battere (?v=): vale solo se la griglia del link è proprio la Sfida di quel giorno.
+  const versus = useMemo<Versus | null>(() => {
+    const v = decodeVersus(versusCode);
+    if (!v || !challenge) return null;
+    return encodeSpec(dailySpec(v.date)) === encodeSpec(challenge) ? v : null;
+  }, [versusCode, challenge]);
   const [save, setSave] = useState<Save>(defaultSave);
   /** Richiesta del nome prima di un invito o di una condivisione (null = nessuna). */
   const [askName, setAskName] = useState<null | ((name: string) => void)>(null);
@@ -353,6 +374,12 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
       log: [...sim.log],
       maxCombo: sim.maxCombo,
       coins: earned,
+      versus:
+        versus &&
+        ((sim.mode === "challenge" && encodeSpec(sim.spec) === encodeSpec(dailySpec(versus.date))) ||
+          (sim.mode === "daily" && versus.date === today))
+          ? { ...versus, winner: versusWinner({ ms, mistakes: sim.mistakes }, versus) }
+          : undefined,
     });
     setModal("clear");
     if (stars === 3) setConfetti(Date.now());
@@ -526,12 +553,25 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     setModal(null);
   }
 
-  async function share(kind: "level" | "daily" | "rush" | "challenge") {
+  function share(kind: "level" | "daily" | "rush" | "challenge") {
+    // La Sfida di oggi porta con sé nome, tempo ed errori: serve un nome (chiesto la prima volta).
+    if (kind === "daily" && result) withName((name) => void shareNow(kind, name));
+    else void shareNow(kind);
+  }
+
+  async function shareNow(kind: "level" | "daily" | "rush" | "challenge", name?: string) {
     unlockAudio();
     const sim = simRef.current;
     const spec = sim?.spec;
     const shareCode = kind === "rush" ? null : spec ? encodeSpec(spec) : result?.code ?? null;
-    const url = `${window.location.origin}${window.location.pathname}${shareCode ? `?c=${shareCode}` : ""}`;
+    const params = new URLSearchParams();
+    if (shareCode) params.set("c", shareCode);
+    if (kind === "daily" && name && result) {
+      params.set("v", encodeVersus({ name, date: today, ms: Math.max(500, result.ms), mistakes: Math.min(999, result.mistakes) }));
+      params.set("f", encodeFriend(meAsFriend(name)));
+    }
+    const query = params.toString();
+    const url = `${baseUrl()}${query ? `?${query}` : ""}`;
     const full = shareMessage(lang, {
       kind,
       level: sim?.level,
@@ -812,6 +852,11 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
           </div>
 
           <div className="mt-6 flex flex-col gap-3">
+            {challenge && versus ? (
+              <p className="bolt-versus-invite text-sm text-pretty">
+                {t.versusInvite(versus.name, formatClock(versus.ms / 1000), versus.mistakes)}
+              </p>
+            ) : null}
             {challenge ? (
               <button
                 type="button"
@@ -1230,6 +1275,34 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                         {result.mistakes} {t.mistakes} · {Math.max(1, Math.round(result.ms / 1000))}s
                       </p>
                       {result.coins > 0 ? <EarnedCoins amount={result.coins} label={t.earned} /> : null}
+                      {result.versus ? (
+                        <div className="bolt-versus" aria-live="polite">
+                          <p className="bolt-versus-title">{t.versusTitle(result.versus.name)}</p>
+                          <div className="bolt-versus-grid tabular-nums">
+                            <div className={result.versus.winner === "me" ? "is-win" : undefined}>
+                              <span>{t.you}</span>
+                              <strong>{formatClock(result.ms / 1000)}</strong>
+                              <span>
+                                {result.mistakes} {t.mistakes}
+                              </span>
+                            </div>
+                            <div className={result.versus.winner === "other" ? "is-win" : undefined}>
+                              <span className="truncate">{result.versus.name}</span>
+                              <strong>{formatClock(result.versus.ms / 1000)}</strong>
+                              <span>
+                                {result.versus.mistakes} {t.mistakes}
+                              </span>
+                            </div>
+                          </div>
+                          <p className="bolt-versus-verdict">
+                            {result.versus.winner === "me"
+                              ? t.youWin
+                              : result.versus.winner === "other"
+                                ? t.theyWin(result.versus.name)
+                                : t.tie}
+                          </p>
+                        </div>
+                      ) : null}
                       {result.log.length ? (
                         <p className="bolt-emoji-row mt-2 text-center" aria-hidden="true">
                           {emojiRow(result.log)}

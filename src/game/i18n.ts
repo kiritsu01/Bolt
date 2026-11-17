@@ -141,6 +141,12 @@ export const copy = {
     confirmRemove: "Rimuovere?",
     removed: (name: string) => `${name} rimosso dagli amici`,
     updatedOn: (date: string) => `agg. ${date}`,
+    versusTitle: (name: string) => `Tu vs ${name}`,
+    youWin: "Hai vinto!",
+    theyWin: (name: string) => `Vince ${name}`,
+    tie: "Pareggio",
+    versusInvite: (name: string, time: string, mistakes: number) =>
+      `${name} ha chiuso questa sfida in ${time} con ${mistakes} ${mistakes === 1 ? "errore" : "errori"}. Battilo!`,
     shareResult: "Condividi",
     shareCard: {
       daily: "Sfida di oggi",
@@ -293,6 +299,12 @@ export const copy = {
     confirmRemove: "Remove?",
     removed: (name: string) => `${name} removed from friends`,
     updatedOn: (date: string) => `upd. ${date}`,
+    versusTitle: (name: string) => `You vs ${name}`,
+    youWin: "You win!",
+    theyWin: (name: string) => `${name} wins`,
+    tie: "It's a tie",
+    versusInvite: (name: string, time: string, mistakes: number) =>
+      `${name} cleared this bolt in ${time} with ${mistakes} ${mistakes === 1 ? "miss" : "misses"}. Beat that!`,
     shareResult: "Share",
     shareCard: {
       daily: "Today's bolt",
