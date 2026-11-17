@@ -176,6 +176,10 @@ export const copy = {
     freeNone: "Completa il livello 3 per lanciare la tua prima sfida.",
     freeShareText: (name: string, level: number, time: string, mistakes: number) =>
       `${name} ti sfida sul livello ${level} di BOLT: ${time} con ${mistakes} ${mistakes === 1 ? "errore" : "errori"}. Riesci a fare meglio?`,
+    legendCombo: "in combo",
+    legendPlain: "senza combo",
+    legendMiss: "errore",
+    challengeCode: "Codice sfida",
     shareResult: "Condividi",
     shareCard: {
       daily: "Sfida di oggi",
@@ -362,6 +366,10 @@ export const copy = {
     freeNone: "Clear level 3 to send your first challenge.",
     freeShareText: (name: string, level: number, time: string, mistakes: number) =>
       `${name} challenges you on BOLT level ${level}: ${time} with ${mistakes} ${mistakes === 1 ? "miss" : "misses"}. Can you do better?`,
+    legendCombo: "in combo",
+    legendPlain: "no combo",
+    legendMiss: "miss",
+    challengeCode: "Challenge code",
     shareResult: "Share",
     shareCard: {
       daily: "Today's bolt",

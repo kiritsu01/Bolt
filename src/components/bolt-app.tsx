@@ -1561,10 +1561,27 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                           {emojiRow(result.log)}
                         </p>
                       ) : null}
-                      {result.code ? (
-                        <p className="mt-2 text-center font-display text-lg font-extrabold tracking-widest">
-                          {result.code}
+                      {result.log.length ? (
+                        <p className="bolt-legend">
+                          <span>
+                            <i className="is-combo" aria-hidden="true" />
+                            {t.legendCombo}
+                          </span>
+                          <span>
+                            <i className="is-plain" aria-hidden="true" />
+                            {t.legendPlain}
+                          </span>
+                          <span>
+                            <i className="is-miss" aria-hidden="true" />
+                            {t.legendMiss}
+                          </span>
                         </p>
+                      ) : null}
+                      {result.code ? (
+                        <div className="mt-2 text-center">
+                          <p className="bolt-code-label">{t.challengeCode}</p>
+                          <p className="font-display text-lg font-extrabold tracking-widest">{result.code}</p>
+                        </div>
                       ) : null}
                       <div className="bolt-sheet-actions mt-5 flex flex-col gap-2">
                         <button
