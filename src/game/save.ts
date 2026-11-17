@@ -1,3 +1,4 @@
+import type { ArrowStyle, ThemeId } from "./cosmetics";
 import { todayKey, yesterdayKey } from "./logic";
 
 export type Save = {
@@ -13,10 +14,19 @@ export type Save = {
   clears: number;
   /** Capitoli di cui è già stata mostrata la schermata di presentazione. */
   seenChapters: number[];
+  /** Monete per il negozio. */
+  coins: number;
+  theme: ThemeId;
+  arrowStyle: ArrowStyle;
+  ownedThemes: ThemeId[];
+  ownedArrows: ArrowStyle[];
 };
 
 /** Formato della versione 1 (chiave "bolt-save-v1"). */
-type SaveV1 = Omit<Save, "version" | "seenChapters"> & { version: 1 };
+type SaveV1 = Pick<
+  Save,
+  "unlocked" | "stars" | "bestRush" | "streak" | "lastDay" | "daily" | "sound" | "lang" | "clears"
+> & { version: 1 };
 
 const KEY = "bolt-save-v2";
 const KEY_V1 = "bolt-save-v1";
@@ -33,15 +43,24 @@ export const defaultSave = (): Save => ({
   lang: "it",
   clears: 0,
   seenChapters: [],
+  coins: 0,
+  theme: "notte",
+  arrowStyle: "classic",
+  ownedThemes: ["notte"],
+  ownedArrows: ["classic"],
 });
 
-/** Converte un salvataggio della versione 1: tiene tutto e aggiunge i campi nuovi. */
+/**
+ * Converte un salvataggio della versione 1: tiene tutto e aggiunge i campi nuovi.
+ * Le stelle già guadagnate valgono una moneta ciascuna, come quelle nuove.
+ */
 export function migrateV1(old: Partial<SaveV1>): Save {
   const base = defaultSave();
+  const stars = old.stars ?? {};
   return {
     ...base,
     unlocked: typeof old.unlocked === "number" ? old.unlocked : base.unlocked,
-    stars: old.stars ?? {},
+    stars,
     bestRush: old.bestRush ?? 0,
     streak: old.streak ?? 0,
     lastDay: old.lastDay ?? "",
@@ -49,6 +68,7 @@ export function migrateV1(old: Partial<SaveV1>): Save {
     sound: old.sound ?? true,
     lang: old.lang === "en" ? "en" : "it",
     clears: old.clears ?? 0,
+    coins: Object.values(stars).reduce((sum, n) => sum + (Number(n) || 0), 0),
   };
 }
 
@@ -62,6 +82,9 @@ export function normalize(parsed: Partial<Save>): Save {
     stars: parsed.stars ?? {},
     daily: parsed.daily ?? {},
     seenChapters: Array.isArray(parsed.seenChapters) ? parsed.seenChapters : [],
+    coins: Math.max(0, Number(parsed.coins) || 0),
+    ownedThemes: Array.isArray(parsed.ownedThemes) ? parsed.ownedThemes : base.ownedThemes,
+    ownedArrows: Array.isArray(parsed.ownedArrows) ? parsed.ownedArrows : base.ownedArrows,
   };
 }
 

@@ -26,6 +26,9 @@ test("un salvataggio v1 diventa v2 senza perdere nulla", () => {
   assert.equal(s.lang, "en");
   assert.equal(s.clears, 30);
   assert.deepEqual(s.seenChapters, []);
+  assert.equal(s.coins, 6, "una moneta per ogni stella già guadagnata");
+  assert.equal(s.theme, "notte");
+  assert.deepEqual(s.ownedArrows, ["classic"]);
 });
 
 test("salvataggi sconosciuti o rotti vengono ignorati", () => {
@@ -39,4 +42,16 @@ test("un v2 con campi mancanti prende i valori iniziali", () => {
   assert.equal(s.unlocked, 4);
   assert.deepEqual(s.stars, {});
   assert.deepEqual(s.seenChapters, []);
+});
+
+import { coinsFor, THEMES, ARROW_STYLES } from "../src/game/cosmetics";
+
+test("regole delle monete e negozio", () => {
+  assert.equal(coinsFor.stars(3, 1), 2);
+  assert.equal(coinsFor.stars(2, 3), 0, "rigiocare peggio non toglie e non regala");
+  assert.equal(coinsFor.daily(true), 5);
+  assert.equal(coinsFor.daily(false), 0);
+  assert.equal(coinsFor.rush(1299), 12);
+  assert.ok(THEMES.filter((t) => t.price > 0).length >= 6);
+  assert.ok(ARROW_STYLES.filter((a) => a.price > 0).length >= 4);
 });

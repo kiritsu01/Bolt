@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import {
+  Check,
   ChevronLeft,
+  Coins,
   Lock,
+  ShoppingBag,
   Flame,
   Lightbulb,
   Play,
@@ -13,11 +16,12 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-react";
-import { playUi, resumeAudio, setSoundEnabled, unlockAudio } from "@/game/audio";
-import { drawBoard, fitCanvas, layoutBoard, readPalette, type Palette } from "@/game/draw";
+import { playMiss, playUi, resumeAudio, setSoundEnabled, unlockAudio } from "@/game/audio";
+import { drawArrow, drawBoard, fitCanvas, layoutBoard, readPalette, type Palette } from "@/game/draw";
 import { copy, type Lang } from "@/game/i18n";
 import { emojiRow, shareMessage } from "@/game/share";
 import { CHAPTERS } from "@/game/chapters";
+import { ARROW_STYLES, THEMES, applyTheme, coinsFor, themeById, type ArrowStyle, type ThemeId } from "@/game/cosmetics";
 import {
   campaignSpec,
   chapterIndex,
@@ -34,7 +38,7 @@ import {
 import { loadSave, noteDay, writeSave, type Save, defaultSave } from "@/game/save";
 import { freshSim, step, tapCell, useHint, useUndo, type Mode, type Sim } from "@/game/sim";
 
-type Phase = "home" | "levels" | "play";
+type Phase = "home" | "levels" | "play" | "shop";
 type Modal = null | "clear" | "over";
 type Hud = {
   left: number;
@@ -54,6 +58,8 @@ type Result = {
   code: string | null;
   log: number[];
   maxCombo: number;
+  /** Monete guadagnate con questa partita. */
+  coins: number;
 };
 type Meta = { mode: Mode; level: number; spec: Spec };
 
@@ -229,6 +235,12 @@ export function BoltApp({ code }: { code?: string }) {
         ? 3
         : starsFor(sim.mistakes, sim.hintsUsed, sim.undos);
     const ms = performance.now() - sim.startedAt;
+    const earned =
+      sim.mode === "campaign"
+        ? coinsFor.stars(stars, save.stars[String(sim.level)] ?? 0)
+        : sim.mode === "daily"
+          ? coinsFor.daily(!save.daily[today])
+          : 0;
     setResult({
       stars,
       mistakes: sim.mistakes,
@@ -237,6 +249,7 @@ export function BoltApp({ code }: { code?: string }) {
       code: encodeSpec(sim.spec),
       log: [...sim.log],
       maxCombo: sim.maxCombo,
+      coins: earned,
     });
     setModal("clear");
     if (stars === 3) setConfetti(Date.now());
@@ -247,12 +260,14 @@ export function BoltApp({ code }: { code?: string }) {
         const key = String(sim.level);
         next = {
           ...next,
+          coins: next.coins + coinsFor.stars(stars, next.stars[key] ?? 0),
           unlocked: Math.max(next.unlocked, sim.level + 1),
           stars: { ...next.stars, [key]: Math.max(next.stars[key] ?? 0, stars) },
         };
       }
       if (sim.mode === "daily") {
         const old = next.daily[today];
+        next = { ...next, coins: next.coins + coinsFor.daily(!old) };
         if (!old || sim.mistakes < old.mistakes || (sim.mistakes === old.mistakes && ms < old.ms)) {
           next = { ...next, daily: { ...next.daily, [today]: { mistakes: sim.mistakes, ms } } };
         }
@@ -271,6 +286,7 @@ export function BoltApp({ code }: { code?: string }) {
       code: null,
       log: [...sim.log],
       maxCombo: sim.maxCombo,
+      coins: coinsFor.rush(sim.score),
     });
     setModal("over");
     if (sim.score > 0 && sim.score >= save.bestRush) {
@@ -279,7 +295,11 @@ export function BoltApp({ code }: { code?: string }) {
     }
     publish(sim);
     setSave((prev) => {
-      const next = noteDay({ ...prev, bestRush: Math.max(prev.bestRush, sim.score) });
+      const next = noteDay({
+        ...prev,
+        bestRush: Math.max(prev.bestRush, sim.score),
+        coins: prev.coins + coinsFor.rush(sim.score),
+      });
       writeSave(next);
       return next;
     });
@@ -301,8 +321,12 @@ export function BoltApp({ code }: { code?: string }) {
     intro != null ? CHAPTERS[intro]!.accent : phase === "play" && chapterNow != null ? CHAPTERS[chapterNow]!.accent : null;
 
   useEffect(() => {
-    paletteRef.current = readPalette(rootRef.current ?? undefined);
-  }, [phase, accent]);
+    applyTheme(save.theme);
+  }, [save.theme]);
+
+  useEffect(() => {
+    paletteRef.current = { ...readPalette(rootRef.current ?? undefined), arrow: save.arrowStyle };
+  }, [phase, accent, save.theme, save.arrowStyle]);
 
   useEffect(() => {
     if (phase !== "levels") return;
@@ -434,6 +458,46 @@ export function BoltApp({ code }: { code?: string }) {
     }
   }
 
+  function openShop() {
+    unlockAudio();
+    playUi();
+    setPhase("shop");
+  }
+
+  function buyOrUse(kind: "theme" | "arrow", id: string, price: number) {
+    unlockAudio();
+    const owned =
+      kind === "theme" ? save.ownedThemes.includes(id as ThemeId) : save.ownedArrows.includes(id as ArrowStyle);
+    if (!owned && save.coins < price) {
+      playMiss();
+      setToast(t.notEnough);
+      return;
+    }
+    playUi();
+    if (!owned) setToast(t.bought);
+    setSave((prev) => {
+      const has =
+        kind === "theme" ? prev.ownedThemes.includes(id as ThemeId) : prev.ownedArrows.includes(id as ArrowStyle);
+      if (!has && prev.coins < price) return prev;
+      const next: Save =
+        kind === "theme"
+          ? {
+              ...prev,
+              coins: has ? prev.coins : prev.coins - price,
+              ownedThemes: has ? prev.ownedThemes : [...prev.ownedThemes, id as ThemeId],
+              theme: id as ThemeId,
+            }
+          : {
+              ...prev,
+              coins: has ? prev.coins : prev.coins - price,
+              ownedArrows: has ? prev.ownedArrows : [...prev.ownedArrows, id as ArrowStyle],
+              arrowStyle: id as ArrowStyle,
+            };
+      writeSave(next);
+      return next;
+    });
+  }
+
   function closeIntro() {
     if (intro == null) return;
     unlockAudio();
@@ -495,6 +559,15 @@ export function BoltApp({ code }: { code?: string }) {
           <div className="flex items-center justify-between py-3">
             <p className="text-xs font-medium tracking-widest text-muted uppercase">{t.kicker}</p>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={openShop}
+                aria-label={`${t.shop}: ${save.coins} ${t.coins}`}
+                className="bolt-coin-pill"
+              >
+                <Coins className="size-4 text-accent" />
+                <span className="tabular-nums">{save.coins}</span>
+              </button>
               <button
                 type="button"
                 onClick={toggleLang}
@@ -569,16 +642,22 @@ export function BoltApp({ code }: { code?: string }) {
               <Timer className="size-4" />
               {t.rush}
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                playUi();
-                setPhase("levels");
-              }}
-              className="h-11 text-sm font-semibold text-muted"
-            >
-              {t.levels}
-            </button>
+            <div className="bolt-home-links">
+              <button
+                type="button"
+                onClick={() => {
+                  playUi();
+                  setPhase("levels");
+                }}
+                className="h-11 text-sm font-semibold text-muted"
+              >
+                {t.levels}
+              </button>
+              <button type="button" onClick={openShop} className="h-11 text-sm font-semibold text-muted">
+                <ShoppingBag className="size-4" />
+                {t.shop}
+              </button>
+            </div>
           </div>
 
           <div className="mt-auto pt-8 pb-2">
@@ -674,6 +753,64 @@ export function BoltApp({ code }: { code?: string }) {
         </div>
       ) : null}
 
+      {phase === "shop" ? (
+        <div className="safe-top safe-bot flex min-h-0 flex-1 flex-col">
+          <header className="flex h-14 items-center gap-2">
+            <IconButton label={t.back} onClick={goHome}>
+              <ChevronLeft className="size-5" />
+            </IconButton>
+            <h2 className="font-display text-xl font-extrabold">{t.shop}</h2>
+            <p className="bolt-coin-pill ml-auto" aria-label={`${save.coins} ${t.coins}`}>
+              <Coins className="size-4 text-accent" />
+              <span className="tabular-nums">{save.coins}</span>
+            </p>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+            <p className="text-sm text-pretty text-muted">{t.shopNote}</p>
+            <h3 className="bolt-shop-title">{t.themesTitle}</h3>
+            <div className="bolt-shop-grid">
+              {THEMES.map((theme) => {
+                const owned = save.ownedThemes.includes(theme.id);
+                const active = save.theme === theme.id;
+                return (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    className={active ? "bolt-shop-item is-active" : "bolt-shop-item"}
+                    onClick={() => buyOrUse("theme", theme.id, theme.price)}
+                    aria-pressed={active}
+                  >
+                    <ThemeSwatch id={theme.id} />
+                    <span className="bolt-shop-name">{t.themeNames[theme.id]}</span>
+                    <ShopTag owned={owned} active={active} price={theme.price} coins={save.coins} t={t} />
+                  </button>
+                );
+              })}
+            </div>
+            <h3 className="bolt-shop-title">{t.arrowsTitle}</h3>
+            <div className="bolt-shop-grid">
+              {ARROW_STYLES.map((style) => {
+                const owned = save.ownedArrows.includes(style.id);
+                const active = save.arrowStyle === style.id;
+                return (
+                  <button
+                    key={style.id}
+                    type="button"
+                    className={active ? "bolt-shop-item is-active" : "bolt-shop-item"}
+                    onClick={() => buyOrUse("arrow", style.id, style.price)}
+                    aria-pressed={active}
+                  >
+                    <ArrowPreview style={style.id} theme={save.theme} />
+                    <span className="bolt-shop-name">{t.arrowNames[style.id]}</span>
+                    <ShopTag owned={owned} active={active} price={style.price} coins={save.coins} t={t} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {phase === "play" && meta ? (
         <div className="safe-top safe-bot flex min-h-0 flex-1 flex-col">
           <header className="flex h-14 items-center gap-2">
@@ -758,6 +895,7 @@ export function BoltApp({ code }: { code?: string }) {
                       <p className="mt-3 text-center text-sm text-muted tabular-nums">
                         {result.mistakes} {t.mistakes} · {Math.max(1, Math.round(result.ms / 1000))}s
                       </p>
+                      {result.coins > 0 ? <EarnedCoins amount={result.coins} label={t.earned} /> : null}
                       {result.log.length ? (
                         <p className="bolt-emoji-row mt-2 text-center" aria-hidden="true">
                           {emojiRow(result.log)}
@@ -811,6 +949,7 @@ export function BoltApp({ code }: { code?: string }) {
                       <p className="mt-1 text-center text-sm text-muted">
                         {t.record} {Math.max(save.bestRush, result.score)}
                       </p>
+                      {result.coins > 0 ? <EarnedCoins amount={result.coins} label={t.earned} /> : null}
                       <div className="mt-5 flex flex-col gap-2">
                         <button
                           type="button"
@@ -968,4 +1107,69 @@ function MechIllustration({ mech }: { mech: number }) {
       ) : null}
     </svg>
   );
+}
+
+function EarnedCoins({ amount, label }: { amount: number; label: string }) {
+  return (
+    <p className="bolt-earned bolt-pop">
+      <Coins className="size-4" />+{amount} {label}
+    </p>
+  );
+}
+
+function ShopTag({
+  owned,
+  active,
+  price,
+  coins,
+  t,
+}: {
+  owned: boolean;
+  active: boolean;
+  price: number;
+  coins: number;
+  t: (typeof copy)[Lang];
+}) {
+  if (active)
+    return (
+      <span className="bolt-shop-tag is-active">
+        <Check className="size-4" />
+        {t.inUse}
+      </span>
+    );
+  if (owned) return <span className="bolt-shop-tag">{t.use}</span>;
+  return (
+    <span className={coins >= price ? "bolt-shop-tag is-price" : "bolt-shop-tag is-price is-short"}>
+      <Coins className="size-4" />
+      {price}
+    </span>
+  );
+}
+
+function ThemeSwatch({ id }: { id: ThemeId }) {
+  const c = themeById(id).colors;
+  return (
+    <svg className="bolt-shop-art" viewBox="0 0 96 56" aria-hidden="true">
+      <rect width="96" height="56" rx="12" fill={c.bg} />
+      <rect x="10" y="10" width="76" height="36" rx="9" fill={c.surface} stroke={c.line} />
+      <path d="M22 24h14v-6l11 10-11 10v-6H22z" fill={c.fg} />
+      <path d="M56 24h14v-6l11 10-11 10v-6H56z" fill={c.accent} />
+    </svg>
+  );
+}
+
+function ArrowPreview({ style, theme }: { style: ArrowStyle; theme: ThemeId }) {
+  const ref = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const fit = fitCanvas(canvas);
+    if (!fit) return;
+    const c = themeById(theme).colors;
+    fit.ctx.clearRect(0, 0, fit.w, fit.h);
+    const cell = Math.min(fit.h, fit.w / 2.4);
+    drawArrow(fit.ctx, fit.w / 2 - cell * 0.6, fit.h / 2, cell, 1, c.fg, 1, 1, 0, style, c.surface);
+    drawArrow(fit.ctx, fit.w / 2 + cell * 0.6, fit.h / 2, cell, 0, c.accent, 1, 1, 0, style, c.surface);
+  }, [style, theme]);
+  return <canvas ref={ref} className="bolt-shop-art" aria-hidden="true" />;
 }

@@ -1,3 +1,4 @@
+import type { ArrowStyle } from "./cosmetics";
 import { VX, VY, type Dir } from "./logic";
 import type { Sim } from "./sim";
 
@@ -8,6 +9,8 @@ export type Palette = {
   line: string;
   muted: string;
   bg: string;
+  /** Stile delle frecce scelto nel negozio. */
+  arrow?: ArrowStyle;
 };
 
 const ROT = [-Math.PI / 2, 0, Math.PI / 2, Math.PI] as const;
@@ -52,7 +55,9 @@ export function layoutBoard(sim: Sim, w: number, h: number) {
   sim.layout = { ox: (w - bw) / 2, oy: (h - bh) / 2, cell };
 }
 
-function drawArrow(
+const PIXEL_ARROW = ["..X..", "..XX.", "XXXXX", "..XX.", "..X.."];
+
+export function drawArrow(
   ctx: CanvasRenderingContext2D,
   cx: number,
   cy: number,
@@ -62,6 +67,8 @@ function drawArrow(
   stretch: number,
   alpha: number,
   turn = 0,
+  style: ArrowStyle = "classic",
+  ink = "#101412",
 ) {
   const s = cell * 0.72;
   ctx.save();
@@ -69,26 +76,70 @@ function drawArrow(
   ctx.rotate(ROT[dir] + turn);
   ctx.scale(stretch, 1 / stretch);
   ctx.globalAlpha = alpha;
-  ctx.beginPath();
-  const head = s * 0.5;
-  const neck = s * 0.06;
-  const tail = -s * 0.44;
-  const shaft = s * 0.16;
-  const headH = s * 0.38;
-  ctx.moveTo(tail, -shaft);
-  ctx.lineTo(neck, -shaft);
-  ctx.lineTo(neck, -headH);
-  ctx.lineTo(head, 0);
-  ctx.lineTo(neck, headH);
-  ctx.lineTo(neck, shaft);
-  ctx.lineTo(tail, shaft);
-  ctx.closePath();
   ctx.fillStyle = fill;
   ctx.strokeStyle = fill;
   ctx.lineJoin = "round";
-  ctx.lineWidth = Math.max(2.5, cell * 0.07);
-  ctx.stroke();
-  ctx.fill();
+  ctx.lineCap = "round";
+  if (style === "chevron") {
+    ctx.lineWidth = Math.max(3, cell * 0.12);
+    for (const off of [-s * 0.26, s * 0.08]) {
+      ctx.beginPath();
+      ctx.moveTo(off - s * 0.16, -s * 0.32);
+      ctx.lineTo(off + s * 0.16, 0);
+      ctx.lineTo(off - s * 0.16, s * 0.32);
+      ctx.stroke();
+    }
+  } else if (style === "dart") {
+    ctx.lineWidth = Math.max(2, cell * 0.05);
+    ctx.beginPath();
+    ctx.moveTo(s * 0.5, 0);
+    ctx.lineTo(-s * 0.44, -s * 0.36);
+    ctx.lineTo(-s * 0.2, 0);
+    ctx.lineTo(-s * 0.44, s * 0.36);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fill();
+  } else if (style === "round") {
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.44, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = ink;
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = Math.max(2.5, cell * 0.09);
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.24, 0);
+    ctx.lineTo(s * 0.2, 0);
+    ctx.moveTo(s * 0.02, -s * 0.2);
+    ctx.lineTo(s * 0.24, 0);
+    ctx.lineTo(s * 0.02, s * 0.2);
+    ctx.stroke();
+  } else if (style === "pixel") {
+    const p = s / 5;
+    for (let y = 0; y < 5; y++) {
+      for (let x = 0; x < 5; x++) {
+        if (PIXEL_ARROW[y]![x] !== "X") continue;
+        ctx.fillRect(-s / 2 + x * p, -s / 2 + y * p, p + 0.5, p + 0.5);
+      }
+    }
+  } else {
+    ctx.beginPath();
+    const head = s * 0.5;
+    const neck = s * 0.06;
+    const tail = -s * 0.44;
+    const shaft = s * 0.16;
+    const headH = s * 0.38;
+    ctx.moveTo(tail, -shaft);
+    ctx.lineTo(neck, -shaft);
+    ctx.lineTo(neck, -headH);
+    ctx.lineTo(head, 0);
+    ctx.lineTo(neck, headH);
+    ctx.lineTo(neck, shaft);
+    ctx.lineTo(tail, shaft);
+    ctx.closePath();
+    ctx.lineWidth = Math.max(2.5, cell * 0.07);
+    ctx.stroke();
+    ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -263,6 +314,8 @@ export function drawBoard(ctx: CanvasRenderingContext2D, sim: Sim, palette: Pale
       Math.max(0.7, stretch),
       arrow.lock ? 0.42 : 1,
       turn,
+      palette.arrow,
+      palette.bg,
     );
     if (arrow.lock) drawLock(ctx, ox + arrow.x * cell, oy + arrow.y * cell, cell, palette, 0);
     else if (lockPulse) {
@@ -287,6 +340,9 @@ export function drawBoard(ctx: CanvasRenderingContext2D, sim: Sim, palette: Pale
       f.combo > 2 ? palette.accent : palette.fg,
       stretch,
       1 - t * 0.15,
+      0,
+      palette.arrow,
+      palette.bg,
     );
   }
 

@@ -160,3 +160,106 @@
     animation-duration: 1ms;
   }
 }
+
+/* --- Monete e negozio ------------------------------------------------------ */
+.bolt-coin-pill {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0 0.875rem;
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-fg);
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.bolt-home-links {
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+}
+.bolt-home-links button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0 0.5rem;
+}
+.bolt-earned {
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  color: var(--color-accent);
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.bolt-shop-title {
+  margin: 1.25rem 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+.bolt-shop-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+.bolt-shop-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  padding: 0.625rem;
+  border-radius: 1rem;
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+  color: var(--color-fg);
+  text-align: left;
+}
+.bolt-shop-item.is-active {
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+.bolt-shop-art {
+  display: block;
+  width: 100%;
+  height: 56px;
+  border-radius: 0.75rem;
+  background: var(--color-bg);
+}
+.bolt-shop-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+.bolt-shop-tag {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border-radius: 0.625rem;
+  background: var(--color-bg);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-fg);
+}
+.bolt-shop-tag.is-active {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+}
+.bolt-shop-tag.is-price {
+  color: var(--color-accent);
+}
+.bolt-shop-tag.is-short {
+  color: var(--color-muted);
+  opacity: 0.7;
+}
+@media (min-width: 640px) and (max-height: 500px) {
+  .bolt-shop-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
