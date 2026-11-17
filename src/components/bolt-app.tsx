@@ -107,6 +107,8 @@ type Hud = {
   coach: boolean;
   canUndo: boolean;
   stuck: boolean;
+  /** Serie viva (entro la finestra di tempo), per il contatore che pulsa. */
+  hot: boolean;
 };
 type Result = {
   stars: number;
@@ -213,6 +215,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     coach: false,
     canUndo: false,
     stuck: false,
+    hot: false,
   });
   /** Capitolo di cui mostrare la schermata di presentazione (null = nessuna). */
   const [intro, setIntro] = useState<number | null>(null);
@@ -425,6 +428,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
       coach: sim.coach,
       canUndo: sim.undo.length > 0 && !sim.resolved,
       stuck: sim.stuck && !sim.resolved,
+      hot: sim.combo >= 2 && sim.heat > 0.05,
     });
   };
 
@@ -1867,9 +1871,19 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                 </button>
               </>
             )}
-            <p className="min-w-16 text-right text-sm text-muted tabular-nums">
-              {hud.left} {t.arrows}
-            </p>
+            {hud.hot && hud.combo >= 2 ? (
+              <p
+                key={hud.combo}
+                className={hud.combo >= 6 ? "bolt-combo-chip is-gold" : "bolt-combo-chip"}
+                aria-label={`${t.combo} x${hud.combo}`}
+              >
+                x{hud.combo}
+              </p>
+            ) : (
+              <p className="min-w-16 text-right text-sm text-muted tabular-nums">
+                {hud.left} {t.arrows}
+              </p>
+            )}
           </footer>
         </div>
       ) : null}

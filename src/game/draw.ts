@@ -22,6 +22,9 @@ export function wiggle(t: number) {
   return Math.sin(u * Math.PI * 6) * (1 - u) * (1 - u);
 }
 
+/** Oro della serie lunga (sopra la x5). */
+export const HEAT_GOLD = "#ffc23d";
+
 const easeOut = (t: number) => 1 - (1 - Math.min(1, Math.max(0, t))) ** 3;
 
 export function readPalette(el: Element = document.documentElement): Palette {
@@ -248,6 +251,26 @@ export function drawBoard(ctx: CanvasRenderingContext2D, sim: Sim, palette: Pale
   ctx.strokeStyle = rim;
   ctx.lineWidth = 1.5;
   ctx.stroke();
+  // Alone della serie: si scalda dal colore d'accento all'oro man mano che la combo cresce.
+  if (sim.heat > 0.01) {
+    ctx.save();
+    ctx.lineWidth = 2 + sim.heat * 2;
+    ctx.strokeStyle = palette.accent;
+    ctx.globalAlpha = Math.min(1, sim.heat * 1.4);
+    if (!sim.reduce) {
+      ctx.shadowColor = palette.accent;
+      ctx.shadowBlur = 10 + 26 * sim.heat;
+    }
+    ctx.stroke();
+    if (sim.heat > 0.5) {
+      ctx.shadowColor = HEAT_GOLD;
+      ctx.strokeStyle = HEAT_GOLD;
+      ctx.globalAlpha = (sim.heat - 0.5) * 1.6;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 
   ctx.strokeStyle = palette.line;
   ctx.lineWidth = 1;

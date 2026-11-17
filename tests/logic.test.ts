@@ -43,8 +43,9 @@ test("riga di emoji della condivisione", () => {
 
 import { comboPitch } from "../src/game/audio";
 
-test("il tono sale con la combo e si ferma due ottave sopra", () => {
-  for (let c = 1; c < 11; c++) assert.ok(comboPitch(c + 1) > comboPitch(c), `combo ${c}`);
-  assert.ok(Math.abs(comboPitch(11) / comboPitch(1) - 4) < 1e-9);
-  assert.equal(comboPitch(30), comboPitch(11));
+test("il tono sale a ogni mossa della combo, per tre ottave", () => {
+  for (let c = 1; c < 16; c++) assert.ok(comboPitch(c + 1) > comboPitch(c), `combo ${c}`);
+  assert.ok(Math.abs(comboPitch(16) / comboPitch(1) - 8) < 1e-9);
+  assert.equal(comboPitch(30), comboPitch(16));
+  assert.ok(comboPitch(1) > 200 && comboPitch(16) < 2200, "mai troppo grave né troppo acuto");
 });

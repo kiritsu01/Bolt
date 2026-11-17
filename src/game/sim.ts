@@ -82,6 +82,8 @@ export type Sim = {
   pulses: Array<{ id: number; kind: "spin" | "lock" | "hit"; age: number; dur: number }>;
   /** Nessuna freccia può uscire ma la griglia non è vuota (possibile con le rotanti). */
   stuck: boolean;
+  /** "Calore" della serie di mosse giuste, 0..1: scalda l'alone attorno alla griglia. */
+  heat: number;
   /** Spazzata luminosa sulla griglia appena svuotata. */
   sweep: { age: number; dur: number } | null;
   /** Fine partita in attesa: il pannello arriva dopo la spazzata. */
@@ -141,6 +143,7 @@ export function freshSim(args: {
     undo: [],
     pulses: [],
     stuck: false,
+    heat: 0,
     sweep: null,
     clearPending: false,
     finishedAt: 0,
@@ -257,7 +260,7 @@ export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
     vibrate(6);
     return;
   }
-  const combo = now - sim.lastExit < 1400 && sim.lastExit > 0 ? sim.combo + 1 : 1;
+  const combo = now - sim.lastExit < COMBO_WINDOW && sim.lastExit > 0 ? sim.combo + 1 : 1;
   sim.combo = combo;
   sim.maxCombo = Math.max(sim.maxCombo, combo);
   sim.log.push(combo >= 3 ? 2 : 1);
@@ -427,9 +430,26 @@ export function step(sim: Sim, dt: number, now: number, emit: Emit) {
     }
   }
 
+  sim.heat = stepHeat(sim.heat, sim.combo, sim.lastExit, now, dt);
+
   sim.hudAcc += dt;
   if (sim.hudAcc > 0.12) {
     sim.hudAcc = 0;
     emit.hud(sim);
   }
+}
+
+/** Finestra di tempo (ms) entro cui una mossa giusta continua la serie. */
+export const COMBO_WINDOW = 1400;
+
+/**
+ * Calore della serie: sale in fretta a ogni mossa giusta (pieno da x10), si raffredda
+ * in circa 300 ms quando la serie si rompe o la finestra scade.
+ */
+export function stepHeat(heat: number, combo: number, lastExit: number, now: number, dt: number) {
+  const live = lastExit > 0 && now - lastExit < COMBO_WINDOW && combo >= 2;
+  const target = live ? Math.min(1, (combo - 1) / 9) : 0;
+  const rate = target > heat ? 10 : 14;
+  const next = heat + (target - heat) * Math.min(1, dt * rate);
+  return Math.abs(next - target) < 0.01 ? target : next;
 }

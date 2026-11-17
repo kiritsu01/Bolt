@@ -107,14 +107,17 @@ function hiss(
 
 const PENTATONIC = [0, 2, 4, 7, 9];
 
+/** Passi di combo in cui la nota continua a salire (x1 ... x16). */
+export const COMBO_STEPS = 16;
+
 /**
- * Altezza (Hz) della nota di una combo: sale lungo una scala pentatonica a ogni passo,
- * fino a due ottave sopra la nota di partenza, poi resta in cima.
+ * Altezza (Hz) della nota di una combo: sale lungo una scala pentatonica a OGNI mossa giusta,
+ * per tre ottave (da do4 a do7), poi resta in cima.
  */
 export function comboPitch(combo: number) {
-  const step = Math.max(0, Math.min(10, combo - 1));
+  const step = Math.max(0, Math.min(COMBO_STEPS - 1, combo - 1));
   const semis = Math.floor(step / 5) * 12 + PENTATONIC[step % 5]!;
-  return 392 * 2 ** (semis / 12);
+  return 261.63 * 2 ** (semis / 12);
 }
 
 /** Note delle stelle contate a fine livello: do, mi, sol (salgono). */

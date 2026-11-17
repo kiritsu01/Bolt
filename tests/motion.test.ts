@@ -65,3 +65,24 @@ test("tremolio dell'errore: breve, contenuto e torna esattamente a riposo", () =
   }
   assert.ok(crossings >= 4 && crossings <= 6, `oscillazioni: ${crossings}`);
 });
+
+import { stepHeat } from "../src/game/sim";
+
+test("calore della serie: sale con la combo, si raffredda quando si rompe", () => {
+  let heat = 0;
+  let now = 1000;
+  for (let combo = 2; combo <= 10; combo++) {
+    for (let i = 0; i < 20; i++) heat = stepHeat(heat, combo, now, now + i * 16, 0.016);
+  }
+  assert.ok(heat > 0.95, `pieno da x10 (${heat})`);
+  // Serie rotta (combo 0 dopo un errore): torna a zero in meno di mezzo secondo.
+  let t = 0;
+  while (heat > 0 && t < 2) {
+    heat = stepHeat(heat, 0, now, now + t * 1000, 0.016);
+    t += 0.016;
+  }
+  assert.equal(heat, 0);
+  assert.ok(t < 0.6, `raffreddamento ${t}s`);
+  // Finestra scaduta: anche senza errori si raffredda.
+  assert.equal(stepHeat(0, 5, 1000, 1000 + 1500, 0.016), 0);
+});
