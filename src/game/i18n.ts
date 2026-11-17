@@ -201,6 +201,10 @@ export const copy = {
     dailiesPlayed: "Sfide di oggi giocate",
     challengesRecord: "Sfide vinte - perse",
     langShort: "EN",
+    arrivalInvite: "Ti ha invitato",
+    arrivalChallenge: "Ti ha sfidato",
+    arrivalAdded: "È tra i tuoi amici: lo vedi sulla mappa dei livelli e nella pagina Amici.",
+    seeFriends: "Vedi i tuoi amici",
     shareResult: "Condividi",
     shareCard: {
       daily: "Sfida di oggi",
@@ -412,6 +416,10 @@ export const copy = {
     dailiesPlayed: "Daily bolts played",
     challengesRecord: "Challenges won - lost",
     langShort: "IT",
+    arrivalInvite: "Invited you",
+    arrivalChallenge: "Challenged you",
+    arrivalAdded: "Now one of your friends: find them on the level map and in Friends.",
+    seeFriends: "See your friends",
     shareResult: "Share",
     shareCard: {
       daily: "Today's bolt",

@@ -187,6 +187,8 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   /** Richiesta del nome prima di un invito o di una condivisione (null = nessuna). */
   const [askName, setAskName] = useState<null | ((name: string) => void)>(null);
   const friendDoneRef = useRef(false);
+  /** Pannello di benvenuto quando si apre il link di un amico (invito o sfida). */
+  const [arrival, setArrival] = useState<{ friend: Friend | null; challenge: Challenge | null } | null>(null);
   /** Pannello di condivisione aperto (testo completo, link, titolo). */
   const [shareSheet, setShareSheet] = useState<{ text: string; url: string; title: string } | null>(null);
   /** Amico per cui è stato chiesto di confermare la rimozione. */
@@ -324,6 +326,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   useEffect(() => {
     let loaded = loadSave();
     // Link amico (?f=): si salva l'amico una volta sola e si toglie il parametro dall'indirizzo.
+    let arrivalFriend: Friend | null = null;
     if (friendCode && !friendDoneRef.current) {
       friendDoneRef.current = true;
       const tl = copy[loaded.lang];
@@ -335,7 +338,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
         else if (merged.status === "full") setToast(tl.friendsFull);
         else {
           const known = merged.friends.find((f) => f.id === incoming.id)!;
-          setToast(tl.friendAt(known.name, known.level));
+          arrivalFriend = known;
           if (merged.status !== "same") {
             loaded = { ...loaded, friends: merged.friends };
             writeSave(loaded);
@@ -350,6 +353,9 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
         /* indirizzo non modificabile: pazienza */
       }
     }
+    // Benvenuto ben visibile per chi apre il link di un amico (prima era solo un messaggio di 2 secondi).
+    const fromOther = linkChallenge && linkChallenge.from.id !== loaded.playerId ? linkChallenge : null;
+    if (arrivalFriend || fromOther) setArrival({ friend: arrivalFriend, challenge: fromOther });
     // Sfida dal link: finisce nell'elenco "Da giocare" (senza doppioni, massimo 30).
     if (linkChallenge) {
       const list = addChallenge(loaded.challenges, linkChallenge, loaded.playerId);
@@ -634,9 +640,9 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   }
 
   function share(kind: "level" | "daily" | "rush" | "challenge") {
-    // Con un risultato da battere il link porta nome e codice giocatore: serve un nome (chiesto la prima volta).
-    if (kind !== "rush" && result && challengeTarget(kind)) withName((name) => void shareNow(kind, name));
-    else void shareNow(kind);
+    // Ogni link condiviso porta il tuo nome (link amico), più il risultato da battere quando la griglia
+    // è condivisibile: per questo serve sempre un nome (chiesto la prima volta).
+    withName((name) => void shareNow(kind, name));
   }
 
   /** Livello e giorno della griglia appena giocata, per costruire il link di sfida (null = non condivisibile). */
@@ -675,10 +681,16 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     const spec = sim?.spec;
     const shareCode = kind === "rush" ? null : spec ? encodeSpec(spec) : result?.code ?? null;
     const target = challengeTarget(kind);
-    const url =
-      name && result && target
-        ? challengeLink(name, target, result)
-        : `${baseUrl()}${shareCode ? `?c=${shareCode}` : ""}`;
+    let url: string;
+    if (name && result && target) url = challengeLink(name, target, result);
+    else {
+      // Griglia non condivisibile (livelli 1-2, Rush): resta comunque il link amico con il tuo nome.
+      const params = new URLSearchParams();
+      if (shareCode) params.set("c", shareCode);
+      if (name) params.set("f", encodeFriend(meAsFriend(name)));
+      const query = params.toString();
+      url = `${baseUrl()}${query ? `?${query}` : ""}`;
+    }
     const rematch = Boolean(name && result?.versus && target);
     const full = (rematch ? `${t.rematchText(result!.versus!.name)}\n` : "") + shareMessage(lang, {
       kind,
@@ -1846,6 +1858,76 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
           onSave={saveName}
           onCancel={() => setAskName(null)}
         />
+      ) : null}
+
+      {arrival && phase === "home" ? (
+        <div className="scrim bolt-sheet-wrap bolt-sheet-top" onClick={(e) => e.target === e.currentTarget && setArrival(null)}>
+          <div
+            className="bolt-rise bolt-sheet rounded-card bg-surface p-6 text-center"
+            role="dialog"
+            aria-modal="true"
+            aria-label={arrival.friend?.name ?? arrival.challenge?.from.name}
+          >
+            {(() => {
+              const name = arrival.friend?.name ?? arrival.challenge!.from.name;
+              const id = arrival.friend?.id ?? arrival.challenge!.from.id;
+              const ch = arrival.challenge;
+              return (
+                <>
+                  <span className="bolt-avatar is-hero mx-auto" style={{ background: avatarColor(id || name) }} aria-hidden="true">
+                    {[...name][0]?.toUpperCase()}
+                  </span>
+                  <p className="mt-3 text-xs font-semibold tracking-widest text-muted uppercase">
+                    {ch ? t.arrivalChallenge : t.arrivalInvite}
+                  </p>
+                  <p className="mt-1 font-display text-3xl font-extrabold break-words">{name}</p>
+                  {arrival.friend ? (
+                    <p className="mt-1 text-sm text-muted tabular-nums">
+                      {t.friendAt(arrival.friend.name, arrival.friend.level)} · {arrival.friend.stars}★
+                    </p>
+                  ) : null}
+                  <p className="mt-3 text-sm text-pretty">{arrival.friend ? t.arrivalAdded : ""}</p>
+                  {ch ? (
+                    <p className="bolt-versus-invite mt-3 text-sm text-pretty">
+                      {t.versusInvite(name, t.challengeWhat(ch.level, shortDay(ch.date)), formatClock(ch.theirs.ms / 1000), ch.theirs.mistakes)}
+                    </p>
+                  ) : null}
+                  <div className="mt-5 flex flex-col gap-2">
+                    {ch ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setArrival(null);
+                          playChallenge(ch);
+                        }}
+                        className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-accent font-display font-extrabold text-accent-ink"
+                      >
+                        <Play className="size-4 fill-current" />
+                        {t.playChallenge}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setArrival(null);
+                          setPendingRemove(null);
+                          setPhase("friends");
+                        }}
+                        className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-accent font-display font-extrabold text-accent-ink"
+                      >
+                        <Users className="size-4" />
+                        {t.seeFriends}
+                      </button>
+                    )}
+                    <button type="button" onClick={() => setArrival(null)} className="h-11 text-sm font-semibold text-muted">
+                      {t.dismiss}
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>
       ) : null}
 
       {shareSheet ? <ShareSheet t={t} {...shareSheet} onClose={() => setShareSheet(null)} onToast={setToast} /> : null}
