@@ -2,6 +2,9 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerE
 import {
   Check,
   Download,
+  UserPlus,
+  Users,
+  Trash2,
   X,
   Tv,
   ChevronLeft,
@@ -44,6 +47,7 @@ import { freshSim, hintShowing, step, tapCell, useHint, useUndo, type Mode, type
 import { hintsLeft, msUntilMidnight, spendHint } from "@/game/hints";
 import { showRewardedAd } from "@/game/ads";
 import { installMode, onPwaChange, promptInstall } from "@/game/pwa";
+import { MAX_NAME, cleanName, decodeFriend, encodeFriend, mergeFriend, type Friend } from "@/game/friends";
 
 type Phase = "home" | "levels" | "play" | "shop";
 type Modal = null | "clear" | "over" | "hints";
@@ -126,9 +130,12 @@ function formatTime(t: number) {
   return t.toFixed(1);
 }
 
-export function BoltApp({ code }: { code?: string }) {
+export function BoltApp({ code, friendCode, versusCode }: { code?: string; friendCode?: string; versusCode?: string }) {
   const challenge = useMemo(() => decodeSpec(code), [code]);
   const [save, setSave] = useState<Save>(defaultSave);
+  /** Richiesta del nome prima di un invito o di una condivisione (null = nessuna). */
+  const [askName, setAskName] = useState<null | ((name: string) => void)>(null);
+  const friendDoneRef = useRef(false);
   const [phase, setPhase] = useState<Phase>("home");
   const [modal, setModal] = useState<Modal>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -220,9 +227,43 @@ export function BoltApp({ code }: { code?: string }) {
   const hintStock = hintsLeft(save, today);
   const dailyBest = save.daily[today];
   const totalStars = Object.values(save.stars).reduce((sum, n) => sum + n, 0);
+  // Amici sulla mappa: chi è su ogni livello (più amici sullo stesso livello vengono impilati).
+  const friendsByLevel = useMemo(() => {
+    const map = new Map<number, Friend[]>();
+    for (const f of save.friends) map.set(f.level, [...(map.get(f.level) ?? []), f]);
+    return map;
+  }, [save.friends]);
+  const topFriendLevel = save.friends.reduce((m, f) => Math.max(m, f.level), 0);
 
   useEffect(() => {
-    const loaded = loadSave();
+    let loaded = loadSave();
+    // Link amico (?f=): si salva l'amico una volta sola e si toglie il parametro dall'indirizzo.
+    if (friendCode && !friendDoneRef.current) {
+      friendDoneRef.current = true;
+      const tl = copy[loaded.lang];
+      const incoming = decodeFriend(friendCode);
+      if (!incoming) setToast(tl.friendBad);
+      else {
+        const merged = mergeFriend(loaded.friends, incoming, loaded.playerId);
+        if (merged.status === "self") setToast(tl.friendSelf);
+        else if (merged.status === "full") setToast(tl.friendsFull);
+        else {
+          const known = merged.friends.find((f) => f.id === incoming.id)!;
+          setToast(tl.friendAt(known.name, known.level));
+          if (merged.status !== "same") {
+            loaded = { ...loaded, friends: merged.friends };
+            writeSave(loaded);
+          }
+        }
+      }
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("f");
+        window.history.replaceState(null, "", url.toString());
+      } catch {
+        /* indirizzo non modificabile: pazienza */
+      }
+    }
     setSave(loaded);
     setSoundEnabled(loaded.sound);
     document.documentElement.lang = loaded.lang;
@@ -495,20 +536,63 @@ export function BoltApp({ code }: { code?: string }) {
       log: result?.log ?? sim?.log,
       url,
     });
+    await deliver(full, shareCode ?? t.shareFail);
+  }
+
+  /** Condivide un testo: navigator.share dove c'è, altrimenti copia negli appunti. */
+  async function deliver(text: string, fallback: string) {
     try {
       if (navigator.share) {
-        await navigator.share({ title: "BOLT", text: full });
+        await navigator.share({ title: "BOLT", text });
         return;
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") return;
     }
     try {
-      await navigator.clipboard.writeText(full);
+      await navigator.clipboard.writeText(text);
       setToast(t.copied);
     } catch {
-      setToast(shareCode ?? t.shareFail);
+      setToast(fallback);
     }
+  }
+
+  /** Il giocatore come "amico", per i link e per la classifica. */
+  function meAsFriend(name = save.playerName): Friend {
+    return { id: save.playerId, name: name || "?", level: save.unlocked, stars: totalStars, streak: save.streak, date: today };
+  }
+
+  function baseUrl() {
+    return `${window.location.origin}${window.location.pathname}`;
+  }
+
+  /** Esegue `then` dopo essersi assicurati che il giocatore abbia un nome (chiesto la prima volta). */
+  function withName(then: (name: string) => void) {
+    unlockAudio();
+    playUi();
+    if (save.playerName) then(save.playerName);
+    else setAskName(() => then);
+  }
+
+  function invite() {
+    withName((name) => {
+      const me = meAsFriend(name);
+      const url = `${baseUrl()}?f=${encodeFriend(me)}`;
+      void deliver(`${t.inviteText(name, me.level, me.stars)}\n${url}`, url);
+    });
+  }
+
+  function saveName(raw: string) {
+    const name = cleanName(raw);
+    if (!name) return;
+    const then = askName;
+    setAskName(null);
+    setSave((prev) => {
+      const next = { ...prev, playerName: name };
+      writeSave(next);
+      return next;
+    });
+    then?.(name);
   }
 
   function requestHint() {
@@ -760,6 +844,14 @@ export function BoltApp({ code }: { code?: string }) {
                 {t.shop}
               </button>
             </div>
+            <button
+              type="button"
+              onClick={invite}
+              className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface font-display text-base font-semibold"
+            >
+              <UserPlus className="size-4 text-accent" />
+              {t.invite}
+            </button>
           </div>
 
           {showInstall ? (
@@ -811,7 +903,8 @@ export function BoltApp({ code }: { code?: string }) {
           <div className="bolt-map min-h-0 flex-1 overflow-y-auto pb-4">
             {CHAPTERS.map((ch) => {
               const info = t.chapters[ch.index]!;
-              const last = ch.last ?? Math.max(ch.first + CHAPTER_SIZE - 1, Math.ceil((save.unlocked + 1) / 5) * 5);
+              const last =
+                ch.last ?? Math.max(ch.first + CHAPTER_SIZE - 1, Math.ceil((Math.max(save.unlocked, topFriendLevel) + 1) / 5) * 5);
               const levels = Array.from({ length: last - ch.first + 1 }, (_, k) => ch.first + k);
               const open = save.unlocked >= ch.first;
               const earned = levels.reduce((sum, l) => sum + (save.stars[String(l)] ?? 0), 0);
@@ -842,9 +935,10 @@ export function BoltApp({ code }: { code?: string }) {
                     {levels.map((level) => {
                       const locked = level > save.unlocked;
                       const stars = save.stars[String(level)] ?? 0;
+                      const here = friendsByLevel.get(level);
                       return (
+                        <div key={level} className="bolt-level-cell">
                         <button
-                          key={level}
                           type="button"
                           disabled={locked}
                           onClick={() => begin("campaign", campaignSpec(level), level)}
@@ -864,6 +958,8 @@ export function BoltApp({ code }: { code?: string }) {
                             ))}
                           </span>
                         </button>
+                        {here ? <FriendStack friends={here} label={t.friendsOnLevel(here.map((f) => f.name).join(", "))} /> : null}
+                        </div>
                       );
                     })}
                   </div>
@@ -1173,6 +1269,15 @@ export function BoltApp({ code }: { code?: string }) {
         </button>
       ) : null}
 
+      {askName ? (
+        <NameSheet
+          t={t}
+          initial={save.playerName}
+          onSave={saveName}
+          onCancel={() => setAskName(null)}
+        />
+      ) : null}
+
       {toast ? (
         <p className="absolute bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-full bg-fg px-4 py-2 text-sm font-semibold text-bg">
           {toast}
@@ -1245,6 +1350,81 @@ function MechIllustration({ mech }: { mech: number }) {
         </g>
       ) : null}
     </svg>
+  );
+}
+
+/** Cerchietti con l'iniziale degli amici fermi su un livello: impilati se sono più di uno. */
+function FriendStack({ friends, label }: { friends: Friend[]; label: string }) {
+  const shown = friends.slice(0, 3);
+  const extra = friends.length - shown.length;
+  return (
+    <span className="bolt-friend-stack" role="img" aria-label={label} title={label}>
+      {shown.map((f) => (
+        <span key={f.id} className="bolt-avatar" style={{ background: avatarColor(f.id) }}>
+          {[...f.name][0]?.toUpperCase()}
+        </span>
+      ))}
+      {extra > 0 ? <span className="bolt-avatar is-more">+{extra}</span> : null}
+    </span>
+  );
+}
+
+const AVATAR_COLORS = ["#ff4d1c", "#2ec4b6", "#a78bfa", "#ffc93c", "#ff5c8a", "#38bdf8", "#84e05f"];
+function avatarColor(id: string) {
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function NameSheet({
+  t,
+  initial,
+  onSave,
+  onCancel,
+}: {
+  t: (typeof copy)[Lang];
+  initial: string;
+  onSave: (name: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initial);
+  const valid = cleanName(value).length > 0;
+  return (
+    <div className="scrim bolt-sheet-wrap bolt-sheet-top">
+      <form
+        className="bolt-rise bolt-sheet rounded-card bg-surface p-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (valid) onSave(value);
+        }}
+      >
+        <p className="text-center font-display text-2xl font-extrabold">{t.askNameTitle}</p>
+        <p className="mt-2 text-center text-sm text-pretty text-muted">{t.askNameText}</p>
+        <input
+          className="bolt-input mt-4"
+          value={value}
+          onChange={(e) => setValue([...e.target.value].slice(0, MAX_NAME).join(""))}
+          maxLength={MAX_NAME * 2}
+          placeholder={t.namePlaceholder}
+          aria-label={t.namePlaceholder}
+          autoFocus
+          autoComplete="nickname"
+          enterKeyHint="done"
+        />
+        <div className="bolt-sheet-actions mt-4 flex flex-col gap-2">
+          <button
+            type="submit"
+            disabled={!valid}
+            className="h-12 rounded-2xl bg-accent font-display font-extrabold text-accent-ink disabled:opacity-40"
+          >
+            {t.saveName}
+          </button>
+          <button type="button" onClick={onCancel} className="h-11 text-sm font-semibold text-muted">
+            {t.cancel}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 

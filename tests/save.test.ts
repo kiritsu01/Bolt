@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseSave } from "../src/game/save";
 
-test("un salvataggio v1 diventa v2 senza perdere nulla", () => {
+test("un salvataggio v1 diventa v3 senza perdere nulla", () => {
   const v1 = {
     version: 1,
     unlocked: 23,
@@ -16,7 +16,7 @@ test("un salvataggio v1 diventa v2 senza perdere nulla", () => {
     clears: 30,
   };
   const s = parseSave(v1)!;
-  assert.equal(s.version, 2);
+  assert.equal(s.version, 3);
   assert.equal(s.unlocked, 23);
   assert.deepEqual(s.stars, v1.stars);
   assert.equal(s.bestRush, 4200);
@@ -37,8 +37,8 @@ test("salvataggi sconosciuti o rotti vengono ignorati", () => {
   assert.equal(parseSave("x"), null);
 });
 
-test("un v2 con campi mancanti prende i valori iniziali", () => {
-  const s = parseSave({ version: 2, unlocked: 4 })!;
+test("un v3 con campi mancanti prende i valori iniziali", () => {
+  const s = parseSave({ version: 3, unlocked: 4 })!;
   assert.equal(s.unlocked, 4);
   assert.deepEqual(s.stars, {});
   assert.deepEqual(s.seenChapters, []);

@@ -12,11 +12,10 @@ import { initPwa } from "@/game/pwa";
 
 initPwa();
 
-// Il codice di una sfida arriva nel link come ?c=CODICE (lo crea "Sfida un amico").
-function readChallengeCode(): string | undefined {
+// Parametri dei link: ?c= sfida (griglia), ?f= amico, ?v= risultato della Sfida di oggi da battere.
+function readParam(name: string): string | undefined {
   try {
-    const c = new URLSearchParams(window.location.search).get("c");
-    return c ?? undefined;
+    return new URLSearchParams(window.location.search).get(name) ?? undefined;
   } catch {
     return undefined;
   }
@@ -24,6 +23,6 @@ function readChallengeCode(): string | undefined {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BoltApp code={readChallengeCode()} />
+    <BoltApp code={readParam("c")} friendCode={readParam("f")} versusCode={readParam("v")} />
   </StrictMode>,
 );

@@ -90,6 +90,64 @@
   }
 }
 
+/* --- Amici sulla mappa ------------------------------------------------------ */
+.bolt-level-cell {
+  position: relative;
+  display: flex;
+}
+.bolt-level-cell > .bolt-level {
+  width: 100%;
+}
+.bolt-friend-stack {
+  position: absolute;
+  top: -7px;
+  right: 1px;
+  display: flex;
+  flex-direction: row-reverse;
+  pointer-events: none;
+}
+.bolt-avatar {
+  display: flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px var(--color-bg);
+  color: #1a0a05;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+.bolt-avatar + .bolt-avatar {
+  margin-right: -9px;
+}
+.bolt-avatar.is-more {
+  background: var(--color-fg);
+  font-size: 9px;
+}
+.bolt-sheet-top {
+  z-index: 40;
+}
+.bolt-input {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 1rem;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font: inherit;
+  font-size: 16px;
+  text-align: center;
+}
+.bolt-input:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
 /* --- Presentazione del capitolo (un tocco) -------------------------------- */
 .bolt-intro {
   position: absolute;
