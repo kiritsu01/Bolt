@@ -37,6 +37,15 @@ Usa il test runner di Node (nessuna dipendenza in più). Controlla che ogni live
 ## Profilo
 In alto a sinistra nella home c'è il tuo nome con l'iniziale (o "Scegli il nome"). Toccandolo si apre il Profilo: il nome con cui ti vedono gli amici (modificabile), il codice giocatore, il pulsante per invitare e i record (livello e capitolo raggiunti, livelli completati e a 3 stelle, stelle, serie, record Rush, migliore Sfida di oggi, sfide vinte e perse, amici, monete). I record sono ricavati dal salvataggio: nessun dato nuovo, il formato resta la versione 4.
 
+## Aspetto, suoni e celebrazioni
+- **Design "neon su inchiostro"**: fondi blu inchiostro saturi, arancio acceso, testo chiaro e caldo. Dietro il gioco tre luci sfumate (accento, viola, magenta; cambiano con tema e capitolo) si spostano lentissime solo con `transform`, fluide anche sui telefoni economici. Tavola "di vetro" con un filo di luce.
+- **Suoni** tutti sintetizzati con Web Audio (`src/game/audio.ts`), nessun file: si gioca offline. Pulsante audio sempre visibile (home e partita), scelta salvata.
+- **Vibrazioni** brevi con `navigator.vibrate` dove esiste (`src/game/haptics.ts`).
+- **Tocco freccia**: pop in due strati, mini rimbalzo prima del volo, vibrazione leggera. **Errore**: tremolio laterale breve e tonfo sordo, niente festa. **Serie**: la nota sale a ogni mossa per tre ottave, alone attorno alla griglia che si scalda fino all'oro, contatore "xN" che pulsa.
+- **Fine livello**: stelle contate una alla volta con note che salgono, poi coriandoli e accordo di vittoria solo se meritati, monete contate con un tic ciascuna. **Lucchetto**: salta via e la freccia si accende. **Capitolo nuovo**: fanfara e titolo lettera per lettera. **Rivincita**: colpo di spade con whoosh.
+- **Si festeggiano solo i successi veri** (`src/game/celebrate.ts`, con test): una sfida persa o pari non ha mai coriandoli, titolo trionfale, stelle luminose o jingle; una stella sola non si festeggia; nel Rush solo un record nuovo.
+- Con `prefers-reduced-motion` sfondo fermo, niente tremolii, rimbalzi o coriandoli.
+
 ## Amici (senza server)
 Tutto viaggia nei link, niente account:
 - **Invita un amico** (home) crea un link `?f=CODICE` con nome (max 12 caratteri, chiesto la prima volta), livello raggiunto, stelle, serie e data. Chi lo apre salva l'amico (max 20; se c'è già, lo aggiorna solo con dati più recenti) e vede "Giulia è al livello 23".
