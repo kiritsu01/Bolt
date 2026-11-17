@@ -114,6 +114,11 @@ export const copy = {
       reward: "Indizio sbloccato!",
     },
     adFail: "Annuncio non completato: niente indizio",
+    installTitle: "Gioca anche offline",
+    installText: "Aggiungi BOLT alla schermata Home: si apre come un'app e funziona senza rete.",
+    installIos: "Tocca Condividi e poi «Aggiungi alla schermata Home».",
+    install: "Aggiungi",
+    dismiss: "Chiudi",
     shareResult: "Condividi",
     shareCard: {
       daily: "Sfida di oggi",
@@ -239,6 +244,11 @@ export const copy = {
       reward: "Hint unlocked!",
     },
     adFail: "Ad not finished: no hint",
+    installTitle: "Play offline too",
+    installText: "Add BOLT to your Home screen: it opens like an app and works without a connection.",
+    installIos: "Tap Share, then “Add to Home Screen”.",
+    install: "Add",
+    dismiss: "Close",
     shareResult: "Share",
     shareCard: {
       daily: "Today's bolt",

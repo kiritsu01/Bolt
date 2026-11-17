@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import {
   Check,
+  Download,
+  X,
   Tv,
   ChevronLeft,
   Coins,
@@ -41,6 +43,7 @@ import { loadSave, noteDay, writeSave, type Save, defaultSave } from "@/game/sav
 import { freshSim, hintShowing, step, tapCell, useHint, useUndo, type Mode, type Sim } from "@/game/sim";
 import { hintsLeft, msUntilMidnight, spendHint } from "@/game/hints";
 import { showRewardedAd } from "@/game/ads";
+import { installMode, onPwaChange, promptInstall } from "@/game/pwa";
 
 type Phase = "home" | "levels" | "play" | "shop";
 type Modal = null | "clear" | "over" | "hints";
@@ -204,6 +207,15 @@ export function BoltApp({ code }: { code?: string }) {
       document.removeEventListener("visibilitychange", onVis);
     };
   }, []);
+  // Invito non invadente ad aggiungere BOLT alla Home: solo in home, dopo il terzo livello, finché non lo si chiude.
+  const [pwaMode, setPwaMode] = useState<"prompt" | "ios" | "none">("none");
+  useEffect(() => {
+    const sync = () => setPwaMode(installMode());
+    sync();
+    return onPwaChange(sync);
+  }, []);
+  const showInstall = pwaMode !== "none" && !save.installDismissed && save.clears >= 3;
+
   const today = todayKey();
   const hintStock = hintsLeft(save, today);
   const dailyBest = save.daily[today];
@@ -533,6 +545,21 @@ export function BoltApp({ code }: { code?: string }) {
     }
   }
 
+  function dismissInstall() {
+    setSave((prev) => {
+      const next = { ...prev, installDismissed: true };
+      writeSave(next);
+      return next;
+    });
+  }
+
+  async function install() {
+    unlockAudio();
+    playUi();
+    const ok = await promptInstall();
+    if (ok) dismissInstall();
+  }
+
   function openShop() {
     unlockAudio();
     playUi();
@@ -734,6 +761,25 @@ export function BoltApp({ code }: { code?: string }) {
               </button>
             </div>
           </div>
+
+          {showInstall ? (
+            <aside className="bolt-install bolt-rise" aria-label={t.installTitle}>
+              <img src="./icons/icon-192.png" alt="" width={44} height={44} className="bolt-install-icon" />
+              <div className="min-w-0 flex-1">
+                <p className="font-display font-extrabold">{t.installTitle}</p>
+                <p className="text-sm text-pretty text-muted">{pwaMode === "ios" ? t.installIos : t.installText}</p>
+              </div>
+              {pwaMode === "prompt" ? (
+                <button type="button" onClick={() => void install()} className="bolt-install-add">
+                  <Download className="size-4" />
+                  {t.install}
+                </button>
+              ) : null}
+              <button type="button" onClick={dismissInstall} aria-label={t.dismiss} className="bolt-install-close">
+                <X className="size-4" />
+              </button>
+            </aside>
+          ) : null}
 
           <div className="mt-auto pt-8 pb-2">
             <p className="text-xs font-semibold tracking-widest text-muted uppercase">{t.howTitle}</p>

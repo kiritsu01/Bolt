@@ -23,6 +23,8 @@ export type Save = {
   /** Giorno (AAAA-MM-GG) a cui si riferisce hintsLeft: un giorno nuovo ricarica la scorta. */
   hintDay: string;
   hintsLeft: number;
+  /** L'invito ad aggiungere BOLT alla schermata Home è stato chiuso. */
+  installDismissed: boolean;
 };
 
 /** Formato della versione 1 (chiave "bolt-save-v1"). */
@@ -53,6 +55,7 @@ export const defaultSave = (): Save => ({
   ownedArrows: ["classic"],
   hintDay: "",
   hintsLeft: 3,
+  installDismissed: false,
 });
 
 /**

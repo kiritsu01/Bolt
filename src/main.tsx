@@ -8,6 +8,9 @@ import "./styles.css";
 import "./effects.css";
 import "./features.css";
 import { BoltApp } from "@/components/bolt-app";
+import { initPwa } from "@/game/pwa";
+
+initPwa();
 
 // Il codice di una sfida arriva nel link come ?c=CODICE (lo crea "Sfida un amico").
 function readChallengeCode(): string | undefined {
