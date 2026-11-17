@@ -1,6 +1,7 @@
 import { playExit, playHit, playMiss, playUnlock } from "./audio";
 import { HAPTIC, vibrate } from "./haptics";
 import { ghostMiss } from "./ghosts";
+import { BLOCK_MS } from "../duel/protocol";
 import {
   type Arrow,
   type Board,
@@ -18,7 +19,7 @@ import {
 } from "./logic";
 import { crossTime, flyDuration } from "./motion";
 
-export type Mode = "campaign" | "daily" | "rush" | "challenge";
+export type Mode = "campaign" | "daily" | "rush" | "challenge" | "duel";
 
 export type Layout = { ox: number; oy: number; cell: number };
 
@@ -85,6 +86,8 @@ export type Sim = {
   stuck: boolean;
   /** "Calore" della serie di mosse giuste, 0..1: scalda l'alone attorno alla griglia. */
   heat: number;
+  /** Duello: i tocchi sono bloccati fino a questo istante (conto alla rovescia, 2 s dopo un errore). */
+  blockedUntil: number;
   /** Spazzata luminosa sulla griglia appena svuotata. */
   sweep: { age: number; dur: number } | null;
   /** Fine partita in attesa: il pannello arriva dopo la spazzata. */
@@ -145,6 +148,7 @@ export function freshSim(args: {
     pulses: [],
     stuck: false,
     heat: 0,
+    blockedUntil: 0,
     sweep: null,
     clearPending: false,
     finishedAt: 0,
@@ -234,6 +238,7 @@ function cellBurst(sim: Sim, arrow: Arrow, n: number, accent: boolean) {
 
 export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
   if (sim.over || sim.resolved) return;
+  if (duelBlocked(sim.blockedUntil, now)) return;
   if (!sim.board.arrows.some((a) => a.id === arrow.id)) return;
   const res = applyTap(sim.board, arrow);
   const cells = arrow.lock ? [{ x: arrow.x, y: arrow.y, block: true }] : rayCells(sim.board, arrow);
@@ -241,6 +246,7 @@ export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
   sim.flashes.push({ cells, bad: !ok, age: 0, dur: ok ? 0.26 : 0.34 });
   if (res.kind === "miss") {
     sim.mistakes += 1;
+    if (sim.mode === "duel") sim.blockedUntil = duelBlockUntil(now);
     ghostMiss(); // lo sfondo rallenta per un attimo
     sim.combo = 0;
     sim.log.push(0);
@@ -318,7 +324,7 @@ export function hintShowing(sim: Sim) {
 }
 
 export function useHint(sim: Sim) {
-  if (sim.over || sim.resolved || sim.mode === "rush") return false;
+  if (sim.over || sim.resolved || sim.mode === "rush" || sim.mode === "duel") return false;
   if (hintShowing(sim)) return false;
   const pick = hintArrow(sim.board);
   if (!pick) return false;
@@ -328,7 +334,7 @@ export function useHint(sim: Sim) {
 }
 
 export function useUndo(sim: Sim) {
-  if (sim.over || sim.resolved || sim.mode === "rush") return;
+  if (sim.over || sim.resolved || sim.mode === "rush" || sim.mode === "duel") return;
   const snap = sim.undo.pop();
   if (!snap) return;
   sim.board = { ...sim.board, arrows: snap.arrows };
@@ -457,4 +463,13 @@ export function stepHeat(heat: number, combo: number, lastExit: number, now: num
   const rate = target > heat ? 10 : 14;
   const next = heat + (target - heat) * Math.min(1, dt * rate);
   return Math.abs(next - target) < 0.01 ? target : next;
+}
+
+/** Duello: un errore blocca i tocchi per BLOCK_MS (2 secondi). */
+export function duelBlockUntil(now: number) {
+  return now + BLOCK_MS;
+}
+
+export function duelBlocked(until: number, now: number) {
+  return now < until;
 }

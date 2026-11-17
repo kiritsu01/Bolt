@@ -61,21 +61,21 @@ export function cleanName(raw: unknown) {
   return [...flat].slice(0, MAX_NAME).join("").trim();
 }
 
-function validName(raw: string) {
+export function validName(raw: string) {
   const clean = cleanName(raw);
   return clean.length > 0 && clean === raw.trim() ? clean : null;
 }
 
 // --- piccoli codificatori --------------------------------------------------
 
-function b64url(text: string) {
+export function b64url(text: string) {
   const bytes = new TextEncoder().encode(text);
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function unb64url(code: string) {
+export function unb64url(code: string) {
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(code)) return null;
   try {
     const bin = atob(code.replace(/-/g, "+").replace(/_/g, "/"));
@@ -87,13 +87,13 @@ function unb64url(code: string) {
 }
 
 /** Numero intero non negativo in base 36, senza zeri iniziali né altro. */
-function num36(part: string | undefined, max: number) {
+export function num36(part: string | undefined, max: number) {
   if (!part || !/^(0|[1-9a-z][0-9a-z]{0,7})$/.test(part)) return null;
   const n = parseInt(part, 36);
   return Number.isSafeInteger(n) && n <= max ? n : null;
 }
 
-function check(body: string) {
+export function check(body: string) {
   return (hash32(`bolt-friend:${body}`) % 1679616).toString(36).padStart(4, "0");
 }
 
