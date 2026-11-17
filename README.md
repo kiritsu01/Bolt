@@ -34,16 +34,26 @@ Usa il test runner di Node (nessuna dipendenza in più). Controlla che ogni live
 - **PWA**: manifest, icone generate da `scripts/make-icons.mjs` (`npm run icons`), service worker generato in build (`src/pwa/sw-template.js` + plugin in `vite.config.ts`) per giocare offline. Dopo il terzo livello completato la home mostra un invito chiudibile ad aggiungere BOLT alla schermata Home (pulsante del browser su Android/Chrome, istruzioni su iPhone).
 - **Effetti**: scia delle frecce in uscita, spazzata luminosa quando la griglia si svuota, tono che sale con la combo (scala pentatonica). Con `prefers-reduced-motion` niente scia né scosse e la spazzata diventa una dissolvenza.
 
+## Amici (senza server)
+Tutto viaggia nei link, niente account:
+- **Invita un amico** (home) crea un link `?f=CODICE` con nome (max 12 caratteri, chiesto la prima volta), livello raggiunto, stelle, serie e data. Chi lo apre salva l'amico (max 20; se c'è già, lo aggiorna solo con dati più recenti) e vede "Giulia è al livello 23".
+- Sulla **mappa dei livelli** ogni amico è un cerchietto con l'iniziale accanto al suo livello, impilati se sono più d'uno.
+- **Pagina Amici**: classifica per livello con te evidenziato in mezzo agli altri, stelle e serie; rimozione con conferma.
+- **Sfida di oggi**: il link condiviso porta anche nome, tempo ed errori (`?v=`). Chi lo apre e gioca la stessa sfida vede "Tu vs Nome" e chi ha vinto (meno errori, poi tempo).
+- In home una riga ricorda chi è avanti ("Giulia è 3 livelli avanti a te") o "Sei davanti a tutti i tuoi amici".
+- I codici hanno un controllo e ogni campo viene validato (livello, stelle ≤ 3 per livello, serie, data non nel futuro, nome pulito): i link manomessi vengono ignorati. Logica in `src/game/friends.ts`, test in `tests/friends.test.ts`.
+- Gli amici si aggiornano solo quando rimandano il loro link: non c'è sincronizzazione automatica.
+
 ## Pubblicità
 Tutto passa da `showRewardedAd()` in `src/game/ads.ts`: oggi mostra un annuncio finto di 3 secondi. Per collegare un circuito vero basta sostituire il corpo della funzione, rispettando il contratto scritto nel file (Promise che si risolve a `true` solo se l'annuncio è stato visto fino in fondo, mai rifiutata).
 
 ## Salvataggi
-I progressi stanno in `localStorage` alla chiave `bolt-save-v2` (formato versione 2). Al primo avvio un salvataggio della versione 1 (`bolt-save-v1`) viene convertito in automatico: livelli, stelle, record, serie e impostazioni restano, e ogni stella già guadagnata vale una moneta.
+I progressi stanno in `localStorage` alla chiave `bolt-save-v3` (formato versione 3: aggiunge identità, nome e amici). Al primo avvio i salvataggi della versione 2 (`bolt-save-v2`) e 1 (`bolt-save-v1`) vengono convertiti in automatico senza perdere nulla; dalla versione 1 ogni stella già guadagnata vale una moneta.
 
 ## Struttura
 - `src/game/` logica, generatore dei livelli, disegno su canvas, audio, testi it/en, salvataggi.
 - `src/components/bolt-app.tsx` interfaccia: home, livelli, partita, risultati.
-- `src/game/chapters.ts` capitoli; `cosmetics.ts` temi e stili di freccia; `hints.ts` scorta indizi; `share.ts` testo da condividere; `ads.ts` pubblicità; `pwa.ts` service worker e invito all'installazione.
+- `src/game/chapters.ts` capitoli; `cosmetics.ts` temi e stili di freccia; `hints.ts` scorta indizi; `share.ts` testo da condividere; `friends.ts` link amico, confronto e classifica; `ads.ts` pubblicità; `pwa.ts` service worker e invito all'installazione.
 - `src/effects.css` effetti aggiunti: scritta delle combo (x5, x10...), coriandoli, ingresso dei pannelli.
 - `src/features.css` stili delle novità (mappa, presentazione capitoli, negozio, indizi, invito Home).
 - `tests/` test automatici (`npm test`).
