@@ -47,9 +47,15 @@ import { freshSim, hintShowing, step, tapCell, useHint, useUndo, type Mode, type
 import { hintsLeft, msUntilMidnight, spendHint } from "@/game/hints";
 import { showRewardedAd } from "@/game/ads";
 import { installMode, onPwaChange, promptInstall } from "@/game/pwa";
-import { MAX_NAME, cleanName, decodeFriend, encodeFriend, mergeFriend, type Friend } from "@/game/friends";
+import { MAX_NAME, cleanName, decodeFriend, encodeFriend, mergeFriend, ranking, type Friend } from "@/game/friends";
 
-type Phase = "home" | "levels" | "play" | "shop";
+/** "2026-11-17" -> "17/11". */
+function shortDay(date: string) {
+  const [, m, d] = date.split("-");
+  return m && d ? `${d}/${m}` : date;
+}
+
+type Phase = "home" | "levels" | "play" | "shop" | "friends";
 type Modal = null | "clear" | "over" | "hints";
 type Hud = {
   left: number;
@@ -136,6 +142,8 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   /** Richiesta del nome prima di un invito o di una condivisione (null = nessuna). */
   const [askName, setAskName] = useState<null | ((name: string) => void)>(null);
   const friendDoneRef = useRef(false);
+  /** Amico per cui è stato chiesto di confermare la rimozione. */
+  const [pendingRemove, setPendingRemove] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("home");
   const [modal, setModal] = useState<Modal>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -582,6 +590,24 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     });
   }
 
+  /** Rimozione in due tocchi: il primo chiede conferma, il secondo rimuove. */
+  function removeFriend(id: string) {
+    unlockAudio();
+    playUi();
+    if (pendingRemove !== id) {
+      setPendingRemove(id);
+      return;
+    }
+    setPendingRemove(null);
+    const gone = save.friends.find((f) => f.id === id);
+    if (gone) setToast(t.removed(gone.name));
+    setSave((prev) => {
+      const next = { ...prev, friends: prev.friends.filter((f) => f.id !== id) };
+      writeSave(next);
+      return next;
+    });
+  }
+
   function saveName(raw: string) {
     const name = cleanName(raw);
     if (!name) return;
@@ -843,6 +869,19 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                 <ShoppingBag className="size-4" />
                 {t.shop}
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  playUi();
+                  setPendingRemove(null);
+                  setPhase("friends");
+                }}
+                className="h-11 text-sm font-semibold text-muted"
+              >
+                <Users className="size-4" />
+                {t.friends}
+                {save.friends.length ? <span className="tabular-nums">{save.friends.length}</span> : null}
+              </button>
             </div>
             <button
               type="button"
@@ -966,6 +1005,84 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                 </section>
               );
             })}
+          </div>
+        </div>
+      ) : null}
+
+      {phase === "friends" ? (
+        <div className="safe-top safe-bot flex min-h-0 flex-1 flex-col">
+          <header className="flex h-14 items-center gap-2">
+            <IconButton label={t.back} onClick={goHome}>
+              <ChevronLeft className="size-5" />
+            </IconButton>
+            <h2 className="font-display text-xl font-extrabold">{t.friends}</h2>
+            <button type="button" onClick={invite} className="bolt-coin-pill ml-auto" aria-label={t.invite}>
+              <UserPlus className="size-4 text-accent" />
+              <span className="text-sm">{t.invite}</span>
+            </button>
+          </header>
+          <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+            {save.friends.length ? (
+              <>
+                <ol className="bolt-friend-list">
+                  {ranking(meAsFriend(save.playerName || t.you), save.friends).map((row, i) => (
+                    <li key={row.me ? "me" : row.id} className={row.me ? "bolt-friend-row is-me" : "bolt-friend-row"}>
+                      <span className="bolt-friend-rank tabular-nums">{i + 1}</span>
+                      <span className="bolt-avatar is-big" style={{ background: avatarColor(row.id) }} aria-hidden="true">
+                        {[...row.name][0]?.toUpperCase()}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-display font-extrabold">
+                          {row.name}
+                          {row.me ? <span className="bolt-me-tag">{t.you}</span> : null}
+                        </p>
+                        <p className="bolt-friend-stats text-sm text-muted tabular-nums">
+                          <span>
+                            <Star className="size-3.5 fill-accent text-accent" />
+                            {row.stars}
+                          </span>
+                          <span>
+                            <Flame className="size-3.5 text-accent" />
+                            {row.streak}
+                          </span>
+                          {row.me ? null : <span className="bolt-friend-date">{t.updatedOn(shortDay(row.date))}</span>}
+                        </p>
+                      </div>
+                      <p className="bolt-friend-level tabular-nums">
+                        <span>{t.levelShort}</span>
+                        {row.level}
+                      </p>
+                      {row.me ? (
+                        <span className="bolt-friend-remove-spacer" aria-hidden="true" />
+                      ) : (
+                        <button
+                          type="button"
+                          className={pendingRemove === row.id ? "bolt-friend-remove is-confirm" : "bolt-friend-remove"}
+                          aria-label={t.remove(row.name)}
+                          onClick={() => removeFriend(row.id)}
+                        >
+                          {pendingRemove === row.id ? t.confirmRemove : <Trash2 className="size-4" />}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+                <p className="mt-4 text-center text-sm text-pretty text-muted">{t.friendsHint}</p>
+              </>
+            ) : (
+              <div className="bolt-friends-empty">
+                <Users className="size-8 text-accent" />
+                <p className="text-pretty text-muted">{t.friendsEmpty}</p>
+                <button
+                  type="button"
+                  onClick={invite}
+                  className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-accent px-6 font-display font-extrabold text-accent-ink"
+                >
+                  <UserPlus className="size-4" />
+                  {t.invite}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ) : null}
