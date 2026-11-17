@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import {
   Check,
+  Copy,
+  MessageCircle,
   Swords,
   ChevronRight,
   Crown,
@@ -183,6 +185,8 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
   /** Richiesta del nome prima di un invito o di una condivisione (null = nessuna). */
   const [askName, setAskName] = useState<null | ((name: string) => void)>(null);
   const friendDoneRef = useRef(false);
+  /** Pannello di condivisione aperto (testo completo, link, titolo). */
+  const [shareSheet, setShareSheet] = useState<{ text: string; url: string; title: string } | null>(null);
   /** Amico per cui è stato chiesto di confermare la rimozione. */
   const [pendingRemove, setPendingRemove] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("home");
@@ -660,25 +664,16 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
       log: result?.log ?? sim?.log,
       url,
     });
-    await deliver(full, shareCode ?? t.shareFail);
+    deliver(full, url, kind === "rush" ? t.shareResult : t.share);
   }
 
   /** Condivide un testo: navigator.share dove c'è, altrimenti copia negli appunti. */
-  async function deliver(text: string, fallback: string) {
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: "BOLT", text });
-        return;
-      }
-    } catch (err) {
-      if (err instanceof DOMException && err.name === "AbortError") return;
-    }
-    try {
-      await navigator.clipboard.writeText(text);
-      setToast(t.copied);
-    } catch {
-      setToast(fallback);
-    }
+  /**
+   * Mostra il pannello di condivisione con il link in vista e tasti espliciti
+   * (Condividi dove il browser lo permette, Copia link, WhatsApp): funziona ovunque, anche su computer.
+   */
+  function deliver(text: string, url: string, title: string) {
+    setShareSheet({ text, url, title });
   }
 
   /** Il giocatore come "amico", per i link e per la classifica. */
@@ -702,7 +697,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     withName((name) => {
       const me = meAsFriend(name);
       const url = `${baseUrl()}?f=${encodeFriend(me)}`;
-      void deliver(`${t.inviteText(name, me.level, me.stars)}\n${url}`, url);
+      deliver(`${t.inviteText(name, me.level, me.stars)}\n${url}`, url, t.invite);
     });
   }
 
@@ -722,7 +717,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
     }
     withName((name) => {
       const url = challengeLink(name, { level, date: today }, best);
-      void deliver(`${t.freeShareText(name, level, formatClock(best.ms / 1000), best.mistakes)}\n${url}`, url);
+      deliver(`${t.freeShareText(name, level, formatClock(best.ms / 1000), best.mistakes)}\n${url}`, url, t.freeTitle);
     });
   }
 
@@ -1738,6 +1733,8 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
         />
       ) : null}
 
+      {shareSheet ? <ShareSheet t={t} {...shareSheet} onClose={() => setShareSheet(null)} onToast={setToast} /> : null}
+
       {toast ? (
         <p className="bolt-toast absolute bottom-6 left-1/2 z-20 -translate-x-1/2 rounded-full bg-fg px-4 py-2 text-sm font-semibold text-bg">
           {toast}
@@ -1845,6 +1842,116 @@ function avatarColor(id: string) {
   let h = 0;
   for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+/** Pannello di condivisione: link sempre visibile e tasti Condividi / Copia link / WhatsApp. */
+function ShareSheet({
+  t,
+  title,
+  text,
+  url,
+  onClose,
+  onToast,
+}: {
+  t: (typeof copy)[Lang];
+  title: string;
+  text: string;
+  url: string;
+  onClose: () => void;
+  onToast: (msg: string) => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+
+  async function nativeShare() {
+    try {
+      await navigator.share({ title: "BOLT", text });
+      onClose();
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === "AbortError")) onToast(t.shareFail);
+    }
+  }
+
+  async function copyLink() {
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch {
+      // Ripiego per browser senza appunti asincroni: si seleziona il link e si copia.
+      const input = inputRef.current;
+      if (input) {
+        input.focus();
+        input.select();
+        try {
+          ok = document.execCommand("copy");
+        } catch {
+          ok = false;
+        }
+      }
+    }
+    if (ok) {
+      setCopied(true);
+      onToast(t.copiedLink);
+    } else {
+      inputRef.current?.select();
+      onToast(t.shareFail);
+    }
+  }
+
+  return (
+    <div className="scrim bolt-sheet-wrap bolt-sheet-top" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bolt-rise bolt-sheet rounded-card bg-surface p-6" role="dialog" aria-modal="true" aria-label={title}>
+        <p className="text-center font-display text-2xl font-extrabold">{title}</p>
+        <p className="mt-2 text-center text-sm text-pretty text-muted">{t.shareHint}</p>
+        <input
+          ref={inputRef}
+          className="bolt-input bolt-link-input mt-4"
+          value={url}
+          readOnly
+          aria-label={t.shareLinkLabel}
+          onFocus={(e) => e.currentTarget.select()}
+        />
+        <div className="mt-4 flex flex-col gap-2">
+          {canShare ? (
+            <button
+              type="button"
+              onClick={() => void nativeShare()}
+              className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-accent font-display font-extrabold text-accent-ink"
+            >
+              <Share2 className="size-4" />
+              {t.shareNative}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void copyLink()}
+            className={
+              canShare
+                ? "flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-bg font-display font-semibold"
+                : "flex h-12 items-center justify-center gap-2 rounded-2xl bg-accent font-display font-extrabold text-accent-ink"
+            }
+          >
+            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+            {copied ? t.copiedLink : t.copyLink}
+          </button>
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent(text)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-bg font-display font-semibold"
+          >
+            <MessageCircle className="size-4" />
+            WhatsApp
+          </a>
+          <button type="button" onClick={onClose} className="h-11 text-sm font-semibold text-muted">
+            {t.dismiss}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function NameSheet({

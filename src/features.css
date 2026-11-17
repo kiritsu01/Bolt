@@ -838,3 +838,15 @@
   text-transform: uppercase;
   color: var(--color-muted);
 }
+
+/* Link nel pannello di condivisione: leggibile, una riga, selezionabile con un tocco. */
+.bolt-link-input {
+  font-size: 0.875rem;
+  text-align: left;
+  text-overflow: ellipsis;
+  color: var(--color-muted);
+}
+a.flex {
+  color: var(--color-fg);
+  text-decoration: none;
+}

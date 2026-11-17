@@ -180,6 +180,11 @@ export const copy = {
     legendPlain: "senza combo",
     legendMiss: "errore",
     challengeCode: "Codice sfida",
+    shareHint: "Manda questo link: chi lo apre ti trova nel gioco.",
+    shareLinkLabel: "Link da condividere",
+    shareNative: "Condividi",
+    copyLink: "Copia link",
+    copiedLink: "Link copiato!",
     shareResult: "Condividi",
     shareCard: {
       daily: "Sfida di oggi",
@@ -370,6 +375,11 @@ export const copy = {
     legendPlain: "no combo",
     legendMiss: "miss",
     challengeCode: "Challenge code",
+    shareHint: "Send this link: whoever opens it finds you in the game.",
+    shareLinkLabel: "Link to share",
+    shareNative: "Share",
+    copyLink: "Copy link",
+    copiedLink: "Link copied!",
     shareResult: "Share",
     shareCard: {
       daily: "Today's bolt",
