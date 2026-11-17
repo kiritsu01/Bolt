@@ -43,3 +43,13 @@ test("monete contate: arrivano esattamente al totale, al massimo 12 tic", () => 
   assert.equal(big.at(-1), 47);
   for (let i = 1; i < big.length; i++) assert.ok(big[i]! > big[i - 1]!);
 });
+
+import { copy } from "../src/game/i18n";
+
+test("errori: singolare quando è uno", () => {
+  assert.equal(copy.it.mistakesN(1), "1 errore");
+  assert.equal(copy.it.mistakesN(0), "0 errori");
+  assert.equal(copy.it.mistakesN(3), "3 errori");
+  assert.equal(copy.en.mistakesN(1), "1 miss");
+  assert.equal(copy.en.mistakesN(2), "2 misses");
+});

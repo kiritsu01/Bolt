@@ -24,6 +24,8 @@ export const copy = {
     hint: "Indizio",
     arrows: "frecce",
     mistakes: "errori",
+    /** "1 errore" / "3 errori": singolare quando è uno. */
+    mistakesN: (n: number) => (n === 1 ? "1 errore" : `${n} errori`),
     combo: "combo",
     coach: "Tocca una freccia che guarda il bordo vuoto.",
     coach2: "Nella fila esce solo quella davanti. Le altre sono bloccate.",
@@ -242,6 +244,7 @@ export const copy = {
     hint: "Hint",
     arrows: "arrows",
     mistakes: "misses",
+    mistakesN: (n: number) => (n === 1 ? "1 miss" : `${n} misses`),
     combo: "combo",
     coach: "Tap an arrow aimed at an open edge.",
     coach2: "In a line, only the front arrow can leave. The rest are blocked.",

@@ -1631,7 +1631,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
               <p className="text-xs text-muted tabular-nums">
                 {meta.mode === "rush"
                   ? `${hud.score} · ${formatTime(hud.time)}s`
-                  : `${hud.mistakes} ${t.mistakes}`}
+                  : t.mistakesN(hud.mistakes)}
                 {hud.combo > 1 ? ` · ${t.combo} x${hud.combo}` : ""}
               </p>
             </div>
@@ -1680,7 +1680,14 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                 <div className="bolt-rise bolt-sheet rounded-card bg-surface p-6">
                   {modal === "clear" && result ? (
                     <>
-                      <p className="text-center text-xs font-semibold tracking-widest text-muted uppercase">
+                      {/* Il titolo è il protagonista solo quando c'è festa; sconfitte e pari restano sobrie. */}
+                      <p
+                        className={
+                          celebration?.confetti
+                            ? "bolt-result-title is-party"
+                            : "text-center text-xs font-semibold tracking-widest text-muted uppercase"
+                        }
+                      >
                         {celebration
                           ? { perfect: t.perfect, clear: t.clear, done: t.titleDone, won: t.titleWon }[celebration.title]
                           : result.stars === 3
@@ -1702,7 +1709,7 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                         }}
                       />
                       <p className="mt-3 text-center text-sm text-muted tabular-nums">
-                        {result.mistakes} {t.mistakes} · {Math.max(1, Math.round(result.ms / 1000))}s
+                        {t.mistakesN(result.mistakes)} · {Math.max(1, Math.round(result.ms / 1000))}s
                       </p>
                       {result.coins > 0 ? <EarnedCoins amount={result.coins} label={t.earned} start={starsDone} /> : null}
                       {result.versus ? (
@@ -1713,14 +1720,14 @@ export function BoltApp({ code, friendCode, versusCode }: { code?: string; frien
                               <span>{t.you}</span>
                               <strong>{formatClock(result.ms / 1000)}</strong>
                               <span>
-                                {result.mistakes} {t.mistakes}
+                                {t.mistakesN(result.mistakes)}
                               </span>
                             </div>
                             <div className={result.versus.winner === "other" ? "is-win" : undefined}>
                               <span className="truncate">{result.versus.name}</span>
                               <strong>{formatClock(result.versus.ms / 1000)}</strong>
                               <span>
-                                {result.versus.mistakes} {t.mistakes}
+                                {t.mistakesN(result.versus.mistakes)}
                               </span>
                             </div>
                           </div>
