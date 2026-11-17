@@ -286,8 +286,14 @@ export function tapCell(sim: Sim, x: number, y: number, now: number) {
   return true;
 }
 
+/** C'è già un indizio acceso su una freccia ancora in griglia. */
+export function hintShowing(sim: Sim) {
+  return sim.hintId != null && sim.board.arrows.some((a) => a.id === sim.hintId);
+}
+
 export function useHint(sim: Sim) {
   if (sim.over || sim.resolved || sim.mode === "rush") return false;
+  if (hintShowing(sim)) return false;
   const pick = hintArrow(sim.board);
   if (!pick) return false;
   sim.hintId = pick.id;

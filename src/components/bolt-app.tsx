@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import {
   Check,
+  Tv,
   ChevronLeft,
   Coins,
   Lock,
@@ -30,16 +31,19 @@ import {
   decodeSpec,
   encodeSpec,
   freeArrows,
+  hintArrow,
   rushSpec,
   starsFor,
   todayKey,
   type Spec,
 } from "@/game/logic";
 import { loadSave, noteDay, writeSave, type Save, defaultSave } from "@/game/save";
-import { freshSim, step, tapCell, useHint, useUndo, type Mode, type Sim } from "@/game/sim";
+import { freshSim, hintShowing, step, tapCell, useHint, useUndo, type Mode, type Sim } from "@/game/sim";
+import { hintsLeft, msUntilMidnight, spendHint } from "@/game/hints";
+import { showRewardedAd } from "@/game/ads";
 
 type Phase = "home" | "levels" | "play" | "shop";
-type Modal = null | "clear" | "over";
+type Modal = null | "clear" | "over" | "hints";
 type Hud = {
   left: number;
   combo: number;
@@ -158,12 +162,50 @@ export function BoltApp({ code }: { code?: string }) {
 
   // Solo per i test automatici (build --mode e2e): nella build normale questo blocco non esiste.
   if (import.meta.env.MODE === "e2e") {
-    (window as unknown as { __bolt?: unknown }).__bolt = { sim: () => simRef.current, freeArrows };
+    (window as unknown as { __bolt?: unknown }).__bolt = {
+      sim: () => simRef.current,
+      freeArrows,
+      hintArrow,
+      /** Tocca la freccia suggerita dal risolutore (per i test automatici). */
+      autoTap: () => {
+        const sim = simRef.current;
+        const pick = sim ? hintArrow(sim.board) : null;
+        if (sim && pick) {
+          tapCell(sim, pick.x, pick.y, performance.now());
+          publish(sim);
+        }
+        return Boolean(pick);
+      },
+    };
   }
 
   const lang: Lang = save.lang;
   const t = copy[lang];
+  // Si ridisegna a mezzanotte (e al ritorno sulla pagina) per ricaricare gli indizi e cambiare la Sfida di oggi.
+  const [, setDayTick] = useState(0);
+  useEffect(() => {
+    let id = 0;
+    const arm = () => {
+      window.clearTimeout(id);
+      id = window.setTimeout(() => {
+        setDayTick((n) => n + 1);
+        arm();
+      }, msUntilMidnight() + 500);
+    };
+    const onVis = () => {
+      if (document.hidden) return;
+      setDayTick((n) => n + 1);
+      arm();
+    };
+    arm();
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.clearTimeout(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
   const today = todayKey();
+  const hintStock = hintsLeft(save, today);
   const dailyBest = save.daily[today];
   const totalStars = Object.values(save.stars).reduce((sum, n) => sum + n, 0);
 
@@ -375,8 +417,7 @@ export function BoltApp({ code }: { code?: string }) {
         useUndo(sim);
         publish(sim);
       } else if (e.code === "KeyH") {
-        useHint(sim);
-        publish(sim);
+        requestHint();
       } else if (e.code === "KeyR") {
         e.preventDefault();
         restart();
@@ -455,6 +496,40 @@ export function BoltApp({ code }: { code?: string }) {
       setToast(t.copied);
     } catch {
       setToast(shareCode ?? t.shareFail);
+    }
+  }
+
+  function requestHint() {
+    const sim = simRef.current;
+    if (!sim || sim.mode === "rush" || sim.resolved || modalRef.current || intro != null) return;
+    unlockAudio();
+    if (hintShowing(sim)) return;
+    if (hintStock <= 0) {
+      playUi();
+      setModal("hints");
+      return;
+    }
+    if (!useHint(sim)) return;
+    playUi();
+    publish(sim);
+    setSave((prev) => {
+      const next = spendHint(prev, today);
+      writeSave(next);
+      return next;
+    });
+  }
+
+  async function watchAdForHint() {
+    setModal(null);
+    const watched = await showRewardedAd(t.ad);
+    const sim = simRef.current;
+    if (!watched) {
+      setToast(t.adFail);
+      return;
+    }
+    if (sim && !sim.resolved && useHint(sim)) {
+      playUi();
+      publish(sim);
     }
   }
 
@@ -872,8 +947,8 @@ export function BoltApp({ code }: { code?: string }) {
             ) : null}
             {confetti ? <Confetti burstKey={confetti} /> : null}
             {modal ? (
-              <div className="scrim absolute inset-0 z-10 flex items-end p-3">
-                <div className="bolt-rise w-full rounded-card bg-surface p-6">
+              <div className="scrim bolt-sheet-wrap">
+                <div className="bolt-rise bolt-sheet rounded-card bg-surface p-6">
                   {modal === "clear" && result ? (
                     <>
                       <p className="text-center text-xs font-semibold tracking-widest text-muted uppercase">
@@ -906,7 +981,7 @@ export function BoltApp({ code }: { code?: string }) {
                           {result.code}
                         </p>
                       ) : null}
-                      <div className="mt-5 flex flex-col gap-2">
+                      <div className="bolt-sheet-actions mt-5 flex flex-col gap-2">
                         <button
                           type="button"
                           onClick={() =>
@@ -942,6 +1017,29 @@ export function BoltApp({ code }: { code?: string }) {
                       </div>
                     </>
                   ) : null}
+                  {modal === "hints" ? (
+                    <>
+                      <p className="text-center font-display text-2xl font-extrabold">{t.hintsOut}</p>
+                      <p className="mt-2 text-center text-sm text-pretty text-muted">{t.hintsRefill}</p>
+                      <div className="bolt-sheet-actions mt-5 flex flex-col gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void watchAdForHint()}
+                          className="flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-accent px-4 py-2 font-display font-extrabold text-accent-ink"
+                        >
+                          <Tv className="size-4" />
+                          {t.watchAd}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setModal(null)}
+                          className="h-11 text-sm font-semibold text-muted"
+                        >
+                          {t.cancel}
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
                   {modal === "over" && result ? (
                     <>
                       <p className="text-center text-xs font-semibold tracking-widest text-muted uppercase">{t.over}</p>
@@ -950,7 +1048,7 @@ export function BoltApp({ code }: { code?: string }) {
                         {t.record} {Math.max(save.bestRush, result.score)}
                       </p>
                       {result.coins > 0 ? <EarnedCoins amount={result.coins} label={t.earned} /> : null}
-                      <div className="mt-5 flex flex-col gap-2">
+                      <div className="bolt-sheet-actions mt-5 flex flex-col gap-2">
                         <button
                           type="button"
                           onClick={() => void share("rush")}
@@ -1000,18 +1098,13 @@ export function BoltApp({ code }: { code?: string }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    const sim = simRef.current;
-                    if (!sim) return;
-                    unlockAudio();
-                    playUi();
-                    useHint(sim);
-                    publish(sim);
-                  }}
+                  onClick={requestHint}
+                  aria-label={hintStock > 0 ? `${t.hint}: ${hintStock} ${t.hintsLeftLabel}` : `${t.hint}: ${t.watchAd}`}
                   className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl border border-line bg-surface text-sm font-semibold"
                 >
-                  <Lightbulb className="size-4" />
+                  {hintStock > 0 ? <Lightbulb className="size-4" /> : <Tv className="size-4" />}
                   {t.hint}
+                  <span className={hintStock > 0 ? "bolt-badge" : "bolt-badge is-ad"}>{hintStock > 0 ? hintStock : "+1"}</span>
                 </button>
               </>
             )}

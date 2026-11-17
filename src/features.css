@@ -263,3 +263,109 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+/* --- Indizi e annuncio simulato --------------------------------------------- */
+.bolt-badge {
+  display: inline-flex;
+  min-width: 1.375rem;
+  height: 1.375rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.bolt-badge.is-ad {
+  background: var(--color-line);
+  color: var(--color-fg);
+}
+.min-h-12 {
+  min-height: 3rem;
+}
+.bolt-ad {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  text-align: center;
+  background: #000;
+  color: #fff;
+  font-family: var(--font-sans);
+}
+.bolt-ad-tag {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid #fff5;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.bolt-ad-count {
+  font-family: var(--font-display);
+  font-size: 4.5rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.bolt-ad-note {
+  color: #fffb;
+}
+.bolt-ad-close {
+  min-height: 44px;
+  margin-top: 1rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  background: #ffffff1f;
+  color: #fff;
+  font-size: 0.875rem;
+}
+
+/* Pannelli di fine partita: coprono tutta la finestra e scorrono se lo spazio non basta (es. 844x390). */
+.bolt-sheet-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+  padding: max(0.75rem, env(safe-area-inset-top)) max(0.75rem, env(safe-area-inset-right))
+    max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+}
+.bolt-sheet {
+  margin-top: auto;
+  width: 100%;
+  max-width: 26rem;
+}
+@media (max-height: 500px) {
+  .bolt-sheet {
+    margin-top: auto;
+    margin-bottom: auto;
+    padding: 1rem 1.25rem;
+  }
+}
+@media (max-height: 500px) {
+  .bolt-sheet-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 0.75rem;
+  }
+  .bolt-sheet-actions > * {
+    flex: 1 1 0;
+    min-width: 6rem;
+    white-space: nowrap;
+  }
+  .bolt-sheet-actions > :first-child {
+    flex-grow: 1.8;
+    padding: 0 0.75rem;
+  }
+}

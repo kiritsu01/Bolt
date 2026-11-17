@@ -20,6 +20,9 @@ export type Save = {
   arrowStyle: ArrowStyle;
   ownedThemes: ThemeId[];
   ownedArrows: ArrowStyle[];
+  /** Giorno (AAAA-MM-GG) a cui si riferisce hintsLeft: un giorno nuovo ricarica la scorta. */
+  hintDay: string;
+  hintsLeft: number;
 };
 
 /** Formato della versione 1 (chiave "bolt-save-v1"). */
@@ -48,6 +51,8 @@ export const defaultSave = (): Save => ({
   arrowStyle: "classic",
   ownedThemes: ["notte"],
   ownedArrows: ["classic"],
+  hintDay: "",
+  hintsLeft: 3,
 });
 
 /**

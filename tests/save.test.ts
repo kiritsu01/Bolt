@@ -55,3 +55,15 @@ test("regole delle monete e negozio", () => {
   assert.ok(THEMES.filter((t) => t.price > 0).length >= 6);
   assert.ok(ARROW_STYLES.filter((a) => a.price > 0).length >= 4);
 });
+
+import { FREE_HINTS, hintsLeft, msUntilMidnight, spendHint } from "../src/game/hints";
+
+test("indizi: 3 al giorno, ricarica a mezzanotte locale", () => {
+  let s = { hintDay: "", hintsLeft: 0 };
+  assert.equal(hintsLeft(s, "2026-11-17"), FREE_HINTS, "giorno nuovo: scorta piena");
+  for (let i = 0; i < 3; i++) s = spendHint(s, "2026-11-17");
+  assert.equal(hintsLeft(s, "2026-11-17"), 0);
+  assert.deepEqual(spendHint(s, "2026-11-17"), s, "a zero non scende sotto");
+  assert.equal(hintsLeft(s, "2026-11-18"), 3, "dopo mezzanotte si ricarica");
+  assert.equal(msUntilMidnight(new Date(2026, 10, 17, 23, 59, 0)), 60000);
+});
