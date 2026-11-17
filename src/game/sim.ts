@@ -268,7 +268,7 @@ export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
   sim.hintId = sim.hintId === arrow.id ? null : sim.hintId;
   for (const id of res.turned) sim.pulses.push({ id, kind: "spin", age: 0, dur: sim.reduce ? 0.01 : 0.2 });
   for (const id of res.unlocked) {
-    sim.pulses.push({ id, kind: "lock", age: 0, dur: 0.35 });
+    sim.pulses.push({ id, kind: "lock", age: 0, dur: 0.55 });
     const a = res.board.arrows.find((o) => o.id === id);
     if (a) cellBurst(sim, a, 6, true);
   }
@@ -296,7 +296,10 @@ export function tapArrow(sim: Sim, arrow: Arrow, now: number) {
     dur: 0.65,
   });
   playExit(combo);
-  if (res.unlocked.length) playUnlock();
+  if (res.unlocked.length) {
+    playUnlock();
+    vibrate(HAPTIC.unlock);
+  }
   vibrate(combo >= 5 ? HAPTIC.tapHot : HAPTIC.tap);
 }
 

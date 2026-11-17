@@ -346,13 +346,16 @@ export function drawBoard(ctx: CanvasRenderingContext2D, sim: Sim, palette: Pale
     if ((arrow.hp ?? 1) > 1) drawShell(ctx, ox + arrow.x * cell, oy + arrow.y * cell, cell, palette, 0);
     else if (hitPulse) drawShell(ctx, ox + arrow.x * cell, oy + arrow.y * cell, cell, palette, hitPulse.age / hitPulse.dur);
     if (arrow.spin) drawSpinRing(ctx, cx, cy, cell, palette, turn + (sim.reduce ? 0 : now / 2400));
+    // Appena liberata dal lucchetto: piccolo rimbalzo e un attimo di colore d'accento.
+    const freed = lockPulse ? Math.min(1, lockPulse.age / lockPulse.dur) : 1;
+    const freedPop = lockPulse && !sim.reduce ? 1 + 0.16 * Math.sin(freed * Math.PI) : 1;
     drawArrow(
       ctx,
       cx,
       cy,
-      cell,
+      cell * freedPop,
       arrow.dir,
-      hinted ? palette.accent : palette.fg,
+      hinted || (lockPulse && freed < 0.45) ? palette.accent : palette.fg,
       Math.max(0.7, stretch),
       arrow.lock ? 0.42 : 1,
       turn,
@@ -361,9 +364,19 @@ export function drawBoard(ctx: CanvasRenderingContext2D, sim: Sim, palette: Pale
     );
     if (arrow.lock) drawLock(ctx, ox + arrow.x * cell, oy + arrow.y * cell, cell, palette, 0);
     else if (lockPulse) {
+      // Il lucchetto si apre, salta via ruotando e cade sfumando.
+      const k = freed;
+      const r = Math.max(7, cell * 0.17);
+      const lx = ox + arrow.x * cell + cell - r - 3;
+      const ly = oy + arrow.y * cell + r + 3;
       ctx.save();
-      ctx.globalAlpha = 1 - lockPulse.age / lockPulse.dur;
-      drawLock(ctx, ox + arrow.x * cell, oy + arrow.y * cell, cell, palette, lockPulse.age / lockPulse.dur);
+      ctx.globalAlpha = 1 - k * k;
+      if (!sim.reduce) {
+        ctx.translate(lx + cell * 0.4 * k, ly - cell * 0.45 * k + cell * 1.2 * k * k);
+        ctx.rotate(k * 1.6);
+        ctx.translate(-lx, -ly);
+      }
+      drawLock(ctx, ox + arrow.x * cell, oy + arrow.y * cell, cell, palette, Math.min(1, k * 4));
       ctx.restore();
     }
   }
