@@ -284,3 +284,13 @@ test("servizio non raggiungibile prima di iniziare: messaggio chiaro", async () 
   (hub.rooms.get("abcd2345")!.members.get("RZVNXX") as unknown as { fail: () => void }).fail();
   assert.equal(views.RZVNXX!.phase, "unavailable");
 });
+
+import { realtimeEndpoint } from "../src/duel/endpoint";
+
+test("indirizzo Realtime di Supabase, anche da un URL copiato con /rest/v1/", () => {
+  const want = "wss://ntprneeezzdcfxlwndox.supabase.co/realtime/v1";
+  assert.equal(realtimeEndpoint("https://ntprneeezzdcfxlwndox.supabase.co"), want);
+  assert.equal(realtimeEndpoint("https://ntprneeezzdcfxlwndox.supabase.co/"), want);
+  assert.equal(realtimeEndpoint("https://ntprneeezzdcfxlwndox.supabase.co/rest/v1/"), want);
+  assert.equal(realtimeEndpoint("  https://ntprneeezzdcfxlwndox.supabase.co/rest/v1  "), want);
+});

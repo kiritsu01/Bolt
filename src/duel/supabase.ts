@@ -1,4 +1,5 @@
 import { RealtimeClient, type RealtimeChannel } from "@supabase/realtime-js";
+import { realtimeEndpoint } from "./endpoint";
 import type { Msg } from "./protocol";
 import type { DuelTransport, Peer } from "./transport";
 
@@ -14,7 +15,7 @@ export class SupabaseTransport implements DuelTransport {
   private errCb: () => void = () => {};
 
   constructor(url: string, key: string) {
-    const ws = `${url.replace(/^http/, "ws").replace(/\/$/, "")}/realtime/v1`;
+    const ws = realtimeEndpoint(url);
     // Battito ogni 5 s: chi perde la rete sparisce presto dalla presenza.
     this.client = new RealtimeClient(ws, { params: { apikey: key }, heartbeatIntervalMs: 5000 });
   }
