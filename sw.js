@@ -1,15 +1,17 @@
 /* Service worker di BOLT: fa funzionare il gioco anche offline.
  * Generato da vite.config.ts in fase di build (npm run build), che inserisce
  * l'impronta della build e l'elenco dei file da salvare. */
-const CACHE = "bolt-78f3308e5aee";
+const CACHE = "bolt-f1b2bca77fc0";
 const PRECACHE = [
   "./",
   "./assets/bricolage-grotesque-latin-600-normal-Bw0J83-2.woff",
   "./assets/bricolage-grotesque-latin-600-normal-nxTgbNFE.woff2",
   "./assets/bricolage-grotesque-latin-800-normal-Br4b-5gk.woff",
   "./assets/bricolage-grotesque-latin-800-normal-J50vIsBe.woff2",
-  "./assets/index-C5o9Es40.css",
-  "./assets/index-ClJcutLZ.js",
+  "./assets/config-53O0EQUW.js",
+  "./assets/config-BZGy4QWe.css",
+  "./assets/index-CON1PtNt.css",
+  "./assets/index-CyG5-rDs.js",
   "./assets/outfit-latin-400-normal-BGsTXAXT.woff2",
   "./assets/outfit-latin-400-normal-DMwTpYkH.woff",
   "./assets/outfit-latin-500-normal-ClnHRwRh.woff",
@@ -47,6 +49,9 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  // La pagina /dev/ (Tracker) è un'app a sé: questo service worker non la gestisce.
+  if (url.pathname.includes("/dev/") || /\/assets\/tracker-/.test(url.pathname)) return;
+  if (req.referrer && new URL(req.referrer).pathname.includes("/dev/")) return;
 
   // Pagina (anche con ?c=CODICE): prima la rete, se manca si usa la copia salvata.
   if (req.mode === "navigate") {
