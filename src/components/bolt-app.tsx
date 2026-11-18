@@ -1350,10 +1350,11 @@ export function BoltApp({
               <button
                 type="button"
                 onClick={() => begin("campaign", campaignSpec(save.unlocked), save.unlocked)}
+                style={{ "--glass-i": 0 } as CSSProperties}
                 className={
                   challenge
-                    ? "bolt-main-btn rounded-2xl border border-line bg-surface font-display"
-                    : "bolt-main-btn rounded-2xl bg-accent font-display text-accent-ink"
+                    ? "bolt-main-btn bolt-glass bolt-glass-main rounded-2xl border border-line bg-surface font-display"
+                    : "bolt-main-btn bolt-glass bolt-glass-main rounded-2xl bg-accent font-display text-accent-ink"
                 }
               >
                 <span className="bolt-main-label">
@@ -1362,7 +1363,12 @@ export function BoltApp({
                 </span>
                 <span className="bolt-main-sub">{t.chapters[chapterIndex(save.unlocked)]!.name}</span>
               </button>
-              <button type="button" onClick={startDuel} className="bolt-main-btn bolt-duel-btn rounded-2xl font-display">
+              <button
+                type="button"
+                onClick={startDuel}
+                style={{ "--glass-i": 1 } as CSSProperties}
+                className="bolt-main-btn bolt-duel-btn bolt-glass bolt-glass-main rounded-2xl font-display"
+              >
                 <span className="bolt-main-label">
                   <Zap className="size-5 fill-current" />
                   {t.duel}
@@ -1373,7 +1379,8 @@ export function BoltApp({
             <button
               type="button"
               onClick={() => begin("daily", dailySpec(today), 0)}
-              className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface font-display text-base font-semibold"
+              style={{ "--glass-i": 2 } as CSSProperties}
+              className="bolt-glass bolt-glass-soft flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface font-display text-base font-semibold"
             >
               {t.daily}
               {dailyBest ? <span className="text-sm font-medium text-muted">{t.todayDone}</span> : null}
@@ -1384,7 +1391,8 @@ export function BoltApp({
                 const runSeed = Math.floor(Math.random() * 1e9) >>> 0;
                 begin("rush", rushSpec(0, runSeed), 0);
               }}
-              className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface font-display text-base font-semibold"
+              style={{ "--glass-i": 3 } as CSSProperties}
+              className="bolt-glass bolt-glass-soft flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface font-display text-base font-semibold"
             >
               <Timer className="size-4" />
               {t.rush}
@@ -1423,7 +1431,8 @@ export function BoltApp({
                 type="button"
                 onClick={openChallenges}
                 aria-label={pendingCount ? `${t.challengesTitle}: ${t.pendingBadge(pendingCount)}` : t.challengesTitle}
-                className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface font-display text-base font-semibold"
+                style={{ "--glass-i": 4 } as CSSProperties}
+                className="bolt-glass bolt-glass-soft flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface font-display text-base font-semibold"
               >
                 <Swords className="size-4 text-accent" />
                 {t.challengesTitle}
@@ -1432,7 +1441,8 @@ export function BoltApp({
               <button
                 type="button"
                 onClick={invite}
-                className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface font-display text-base font-semibold"
+                style={{ "--glass-i": 5 } as CSSProperties}
+                className="bolt-glass bolt-glass-soft flex h-12 items-center justify-center gap-2 rounded-2xl border border-line bg-surface font-display text-base font-semibold"
               >
                 <UserPlus className="size-4 text-accent" />
                 {t.invite}

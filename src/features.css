@@ -1386,21 +1386,107 @@ h1 .text-accent {
     0 10px 30px -10px var(--glow-b),
     inset 0 1px 0 rgb(255 255 255 / 0.3);
 }
-.bolt-duel-btn::after {
+/* --- Vetro liquido leggero dei pulsanti della home --------------------------
+   Solo transform/opacity per il bagliore. Il vetro vero e proprio è una tinta
+   traslucida con blur max 8px, spento su dispositivi lenti e con trasparenza
+   ridotta. Niente filtri SVG. Testo e icone restano sopra i riflessi. */
+.bolt-glass {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transform-origin: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+/* Riflesso lucido in alto: bianco 15% che sfuma a zero. */
+.bolt-glass::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.28) 50%, transparent 70%);
-  transform: translateX(-120%);
-  animation: bolt-duel-shine 3.6s 1s ease-in-out infinite;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.15), rgb(255 255 255 / 0) 52%);
 }
-@keyframes bolt-duel-shine {
-  0%,
-  60% {
-    transform: translateX(-120%);
+/* Bordo di luce sottile per staccare il vetro dallo sfondo. */
+.bolt-glass-soft {
+  border-color: rgb(255 255 255 / 0.22);
+  background: color-mix(in srgb, var(--color-surface) 42%, transparent);
+  -webkit-backdrop-filter: blur(8px) saturate(1.2);
+  backdrop-filter: blur(8px) saturate(1.2);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.16),
+    0 10px 24px -20px rgb(0 0 0 / 0.65);
+}
+/* Senza blur il vetro diventa più coperto: il testo resta AA. */
+:root[data-low-power="true"] .bolt-glass-soft {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+}
+@supports not ((-webkit-backdrop-filter: blur(8px)) or (backdrop-filter: blur(8px))) {
+  .bolt-glass-soft {
+    background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+  }
+}
+/* Il bagliore che attraversa il pulsante ogni 7 s, sfalsato tra i sei pulsanti. */
+.bolt-glass::after {
+  content: "";
+  position: absolute;
+  top: -25%;
+  bottom: -25%;
+  left: -35%;
+  z-index: -1;
+  width: 30%;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgb(255 255 255 / 0.26) 50%, transparent);
+  transform: translateX(-140%) skewX(-14deg);
+  animation: bolt-glass-sheen 7s calc(var(--glass-i, 0) * -1.15s) ease-in-out infinite;
+}
+.bolt-glass > * {
+  position: relative;
+  z-index: 1;
+}
+@keyframes bolt-glass-sheen {
+  0% {
+    transform: translateX(-140%) skewX(-14deg);
+    opacity: 0;
+  }
+  3% {
+    opacity: 0.85;
+  }
+  14% {
+    transform: translateX(430%) skewX(-14deg);
+    opacity: 0;
   }
   100% {
-    transform: translateX(120%);
+    transform: translateX(430%) skewX(-14deg);
+    opacity: 0;
+  }
+}
+/* Tocco: goccia che si schiaccia e si allarga; al rilascio torna con rimbalzo. */
+.bolt-glass:active:not(:disabled) {
+  transform: scale(0.94) scaleX(1.035);
+  transition-duration: 90ms;
+  transition-timing-function: ease-out;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .bolt-glass-soft {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bolt-glass {
+    transition: none;
+  }
+  .bolt-glass::after {
+    animation: none;
+    opacity: 0;
+  }
+  .bolt-glass:active:not(:disabled) {
+    transform: none;
   }
 }
 .bolt-duel-screen {

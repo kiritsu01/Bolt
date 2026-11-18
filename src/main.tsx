@@ -9,7 +9,9 @@ import "./effects.css";
 import "./features.css";
 import { BoltApp } from "@/components/bolt-app";
 import { initPwa } from "@/game/pwa";
+import { applyPerfHints } from "@/game/perf";
 
+applyPerfHints(document, navigator);
 initPwa();
 
 // Parametri dei link: ?c= sfida (griglia), ?f= amico, ?v= risultato da battere, ?d= invito a duello.
