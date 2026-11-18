@@ -12,10 +12,10 @@
 
 export const GHOST_COUNT_MIN = 20;
 export const GHOST_COUNT_MAX = 30;
-export const GHOST_ALPHA_MIN = 0.04;
-export const GHOST_ALPHA_MAX = 0.08;
-/** Opacità massima assoluta, anche con la combo al massimo: lo sfondo non compete mai con la griglia. */
-export const GHOST_ALPHA_CAP = 0.1;
+export const GHOST_ALPHA_MIN = 0.06;
+export const GHOST_ALPHA_MAX = 0.09;
+/** Opacità massima assoluta, anche con la combo al massimo: resta nel range 0,06-0,10. */
+export const GHOST_ALPHA_CAP = 0.10;
 export const GHOST_FPS = 30;
 export const HEAT_GOLD = "#ffc23d";
 

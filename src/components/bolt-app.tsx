@@ -626,10 +626,22 @@ export function BoltApp({
     });
   };
 
-  // Colore d'accento del capitolo: in partita (campagna) e nella sua presentazione.
+  // Colore d'accento e cielo del capitolo: in partita (campagna) e nella sua presentazione.
   const chapterNow = meta?.mode === "campaign" ? chapterIndex(meta.level) : null;
-  const accent =
-    intro != null ? CHAPTERS[intro]!.accent : phase === "play" && chapterNow != null ? CHAPTERS[chapterNow]!.accent : null;
+  const stageChapter =
+    intro != null ? CHAPTERS[intro]! : phase === "play" && chapterNow != null ? CHAPTERS[chapterNow]! : null;
+  const accent = stageChapter?.accent ?? null;
+  const stageVars = stageChapter
+    ? ({
+        ...(stageChapter.accent ? { "--color-accent": stageChapter.accent } : {}),
+        "--bg-a": stageChapter.sky[0],
+        "--bg-b": stageChapter.sky[1],
+        "--bg-c": stageChapter.sky[2],
+        "--light-a": stageChapter.lights[0],
+        "--light-b": stageChapter.lights[1],
+        "--light-c": stageChapter.lights[2],
+      } as CSSProperties)
+    : undefined;
 
   useEffect(() => {
     applyTheme(save.theme);
@@ -1220,9 +1232,9 @@ export function BoltApp({
     <div
       ref={rootRef}
       className="safe-x relative mx-auto flex h-dvh w-full max-w-md flex-col overflow-hidden"
-      style={accent ? ({ "--color-accent": accent } as CSSProperties) : undefined}
+      style={stageVars}
     >
-      {/* Sfondo vivo: luci colorate che si muovono piano (solo transform, fluido anche sui telefoni economici). */}
+      {/* Sfondo vivo: cielo che ruota piano, tre luci che si mescolano e frecce fantasma. */}
       <div className="bolt-bg" aria-hidden="true">
         <i className="bolt-glow is-a" />
         <i className="bolt-glow is-b" />
@@ -2830,11 +2842,23 @@ function ShopTag({
 }
 
 function ThemeSwatch({ id }: { id: ThemeId }) {
-  const c = themeById(id).colors;
+  const theme = themeById(id);
+  const c = theme.colors;
+  const sky = `bolt-sky-${id}`;
   return (
     <svg className="bolt-shop-art" viewBox="0 0 96 56" aria-hidden="true">
-      <rect width="96" height="56" rx="12" fill={c.bg} />
-      <rect x="10" y="10" width="76" height="36" rx="9" fill={c.surface} stroke={c.line} />
+      <defs>
+        <linearGradient id={sky} x1="0" y1="0" x2="1" y2="1">
+          <stop stopColor={theme.sky[0]} />
+          <stop offset="0.5" stopColor={theme.sky[1]} />
+          <stop offset="1" stopColor={theme.sky[2]} />
+        </linearGradient>
+      </defs>
+      <rect width="96" height="56" rx="12" fill={`url(#${sky})`} />
+      <circle cx="74" cy="8" r="20" fill={theme.lights[0]} opacity="0.45" />
+      <circle cx="92" cy="46" r="17" fill={theme.lights[1]} opacity="0.45" />
+      <circle cx="4" cy="52" r="15" fill={theme.lights[2]} opacity="0.45" />
+      <rect x="10" y="10" width="76" height="36" rx="9" fill={c.surface} fillOpacity="0.9" stroke={c.line} />
       <path d="M22 24h14v-6l11 10-11 10v-6H22z" fill={c.fg} />
       <path d="M56 24h14v-6l11 10-11 10v-6H56z" fill={c.accent} />
     </svg>
