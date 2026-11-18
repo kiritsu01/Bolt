@@ -25,7 +25,7 @@ import { CHAPTERS } from "../src/game/chapters";
 
 const quiet = (): GhostSignals => ({ heat: 0, heatAt: -1e9, missAt: -1e9, burstAt: -1e9 });
 
-test("tra 20 e 30 fantasmi, tenui, di dimensioni e velocità diverse", () => {
+test("tra 20 e 30 fantasmi, tenui (0,06-0,10), di dimensioni e velocità diverse", () => {
   assert.equal(ghostCount(390, 844), 20);
   assert.equal(ghostCount(844, 390), 20);
   assert.equal(ghostCount(2560, 1440), 30);
@@ -33,6 +33,7 @@ test("tra 20 e 30 fantasmi, tenui, di dimensioni e velocità diverse", () => {
   assert.equal(gs.length, 20);
   for (const g of gs) {
     assert.ok(g.alpha >= GHOST_ALPHA_MIN && g.alpha <= GHOST_ALPHA_MAX);
+    assert.ok(ghostAlpha(g.alpha, 1) <= GHOST_ALPHA_CAP);
     assert.ok(g.size >= 14 && g.size <= 48);
     assert.ok(g.speed > 0);
   }

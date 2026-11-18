@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "build:single": "vite build --mode single",
     "preview": "vite preview --host",
-    "test": "node --experimental-strip-types --no-warnings --import ./scripts/ts-hooks.mjs --test 'tests/**/*.test.ts'",
+    "test": "node --experimental-strip-types --no-warnings --import ./scripts/ts-hooks.mjs --test",
     "icons": "node scripts/make-icons.mjs"
   },
   "dependencies": {
