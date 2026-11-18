@@ -21,7 +21,7 @@ export function isStandalone() {
   }
 }
 
-function isIos() {
+export function isIos() {
   const ua = navigator.userAgent;
   return /iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 }

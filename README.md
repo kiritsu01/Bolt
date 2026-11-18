@@ -80,6 +80,9 @@ Tutto passa da `showRewardedAd()` in `src/game/ads.ts`: oggi mostra un annuncio 
 ## Salvataggi
 I progressi stanno in `localStorage` alla chiave `bolt-save-v4` (formato versione 4: aggiunge sfide ricevute e miglior risultato per livello; la 3 aveva aggiunto identità, nome e amici). Al primo avvio i salvataggi delle versioni 3, 2 e 1 vengono convertiti in automatico senza perdere nulla; dalla versione 1 ogni stella già guadagnata vale una moneta.
 
+- **Esporta / Importa** (Profilo → Impostazioni): "Esporta salvataggio" mostra un codice `BOLT1.…` da copiare; "Importa salvataggio" accetta il codice incollato e, dopo una conferma con il riepilogo (livello, stelle, monete), sostituisce i progressi del dispositivo. Il codice contiene il salvataggio così com'è (resta alla versione 4) e all'importazione passa dalla stessa lettura dell'avvio; codici rotti o manomessi vengono rifiutati (`src/game/backup.ts`, test in `tests/backup.test.ts`).
+- Su **iPhone/iPad con Safari**, dopo aver finito il livello 5 compare una volta sola l'invito ad aggiungere BOLT alla schermata Home, perché Safari può cancellare i dati dei siti poco usati (`src/game/pwa-tip.ts`; il "già visto" sta in una chiave a parte).
+
 ## Struttura
 - `src/game/` logica, generatore dei livelli, disegno su canvas, audio, testi it/en, salvataggi.
 - `src/components/bolt-app.tsx` interfaccia: home, livelli, partita, risultati.

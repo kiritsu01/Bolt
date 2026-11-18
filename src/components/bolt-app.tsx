@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from "react";
 import {
+  Settings,
   Zap,
   Check,
   Pencil,
@@ -36,6 +37,8 @@ import { celebrationFor, rushCelebration, type Celebration } from "@/game/celebr
 import { HAPTIC, vibrate } from "@/game/haptics";
 import { ghostBurst, setGhostHeat } from "@/game/ghosts";
 import { GhostField } from "@/components/ghost-field";
+import { SettingsPage } from "@/components/settings-page";
+import { iosHomeTipDue, iosHomeTipSeen, markIosHomeTipSeen } from "@/game/pwa-tip";
 import { DuelBar, DuelBlock, DuelCountdown, DuelLobby, ForfeitBanner } from "@/components/duel-ui";
 import { duelBackend, SUPABASE_ANON_KEY, SUPABASE_URL } from "@/duel/config";
 import { decodeInvite, duelSpec, encodeInvite, newRoomId, type DuelInvite } from "@/duel/protocol";
@@ -64,7 +67,7 @@ import { loadSave, noteDay, writeSave, type Save, defaultSave } from "@/game/sav
 import { freshSim, hintShowing, step, tapCell, useHint, useUndo, type Mode, type Sim } from "@/game/sim";
 import { hintsLeft, msUntilMidnight, spendHint } from "@/game/hints";
 import { showRewardedAd } from "@/game/ads";
-import { installMode, onPwaChange, promptInstall } from "@/game/pwa";
+import { installMode, isIos, isStandalone, onPwaChange, promptInstall } from "@/game/pwa";
 import {
   MAX_NAME,
   cleanName,
@@ -105,7 +108,7 @@ function shortDay(date: string) {
   return m && d ? `${d}/${m}` : date;
 }
 
-type Phase = "home" | "levels" | "play" | "shop" | "friends" | "challenges" | "profile" | "duel";
+type Phase = "home" | "levels" | "play" | "shop" | "friends" | "challenges" | "profile" | "duel" | "settings";
 type Modal = null | "clear" | "over" | "hints" | "duel";
 type Hud = {
   left: number;
@@ -221,6 +224,8 @@ export function BoltApp({
   const duelSentRef = useRef("");
   /** Aperto da un link di duello: niente pannello di benvenuto sopra la schermata del duello. */
   const [arrivalDuel, setArrivalDuel] = useState(false);
+  /** Invito iPhone "Aggiungi alla schermata Home" (una volta sola, dopo il livello 5). */
+  const [iosTip, setIosTip] = useState(false);
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
   /** Record del Rush all'inizio della partita: serve a capire se il punteggio finale è davvero un record. */
   const bestAtStartRef = useRef(0);
@@ -631,6 +636,13 @@ export function BoltApp({
   }, [save.theme]);
 
   useEffect(() => {
+    if (!saveReady || phase !== "home" || iosTip) return;
+    if (!iosHomeTipDue({ ios: isIos(), standalone: isStandalone(), unlocked: save.unlocked, seen: iosHomeTipSeen() })) return;
+    markIosHomeTipSeen();
+    setIosTip(true);
+  }, [saveReady, phase, save.unlocked, iosTip]);
+
+  useEffect(() => {
     const on = () => setOnline(true);
     const off = () => setOnline(false);
     window.addEventListener("online", on);
@@ -1018,6 +1030,22 @@ export function BoltApp({
       writeSave(next);
       return next;
     });
+  }
+
+  function openSettings() {
+    unlockAudio();
+    playUi();
+    setPhase("settings");
+  }
+
+  /** Importa un salvataggio (già confermato): sostituisce i progressi di questo dispositivo. */
+  function importSave(next: Save) {
+    writeSave(next);
+    setSave(next);
+    setSoundEnabled(next.sound);
+    document.documentElement.lang = next.lang;
+    setToast(copy[next.lang].importDone);
+    playUi();
   }
 
   function openProfile() {
@@ -1732,6 +1760,21 @@ export function BoltApp({
         </div>
       ) : null}
 
+      {phase === "settings" ? (
+        <SettingsPage
+          t={t}
+          save={save}
+          onBack={() => {
+            playUi();
+            setPhase("profile");
+          }}
+          onToggleLang={toggleLang}
+          onToggleSound={toggleSound}
+          onImport={importSave}
+          onToast={setToast}
+        />
+      ) : null}
+
       {phase === "profile" ? (
         <div className="safe-top safe-bot flex min-h-0 flex-1 flex-col">
           <header className="flex h-14 items-center gap-2">
@@ -1739,6 +1782,10 @@ export function BoltApp({
               <ChevronLeft className="size-5" />
             </IconButton>
             <h2 className="font-display text-xl font-extrabold">{t.profile}</h2>
+            <span className="flex-1" />
+            <IconButton label={t.settings} onClick={openSettings}>
+              <Settings className="size-5" />
+            </IconButton>
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto pb-4">
             <section className="bolt-profile-card">
@@ -1775,6 +1822,14 @@ export function BoltApp({
                 {t.invite}
               </button>
             </div>
+
+            <button type="button" onClick={openSettings} className="bolt-setting-row mt-3">
+              <Settings className="size-5 text-accent" />
+              <span className="flex-1">{t.settings}</span>
+              <span className="text-muted">
+                {t.exportTitle} · {t.importTitle}
+              </span>
+            </button>
 
             <h3 className="bolt-shop-title">{t.recordsTitle}</h3>
             <div className="bolt-record-grid">
@@ -2323,6 +2378,35 @@ export function BoltApp({
                 </>
               );
             })()}
+          </div>
+        </div>
+      ) : null}
+
+      {iosTip && phase === "home" && !arrival && !shareSheet && !askName ? (
+        <div className="scrim bolt-sheet-wrap bolt-sheet-top" onClick={(e) => e.target === e.currentTarget && setIosTip(false)}>
+          <div className="bolt-rise bolt-sheet rounded-card bg-surface p-6 text-center" role="dialog" aria-modal="true" aria-label={t.iosTipTitle}>
+            <img src="./icons/icon-192.png" alt="" width={56} height={56} className="bolt-install-icon mx-auto" />
+            <p className="mt-3 font-display text-2xl font-extrabold">{t.iosTipTitle}</p>
+            <p className="mt-2 text-sm text-pretty text-muted">{t.iosTipText}</p>
+            <div className="mt-5 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => setIosTip(false)}
+                className="flex h-12 items-center justify-center rounded-2xl bg-accent font-display font-extrabold text-accent-ink"
+              >
+                {t.gotIt}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIosTip(false);
+                  openSettings();
+                }}
+                className="h-11 text-sm font-semibold text-muted"
+              >
+                {t.exportTitle}
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

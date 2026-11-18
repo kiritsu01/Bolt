@@ -1571,3 +1571,115 @@ h1 .text-accent {
   width: 2.25rem;
   height: 2.25rem;
 }
+
+/* --- Impostazioni ------------------------------------------------------------------ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.bolt-settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.bolt-setting-row {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 1rem;
+  background: var(--color-surface);
+  color: var(--color-fg);
+  font-weight: 600;
+  text-align: left;
+}
+.bolt-setting-row > .text-muted {
+  overflow: hidden;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bolt-switch {
+  position: relative;
+  width: 2.75rem;
+  height: 1.625rem;
+  flex: none;
+  border-radius: 999px;
+  background: var(--color-line);
+  transition: background 160ms ease-out;
+}
+.bolt-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: var(--color-fg);
+  transition: transform 160ms ease-out;
+}
+.bolt-switch.is-on {
+  background: var(--color-accent);
+}
+.bolt-switch.is-on::after {
+  transform: translateX(1.125rem);
+}
+.bolt-setting-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--color-line);
+  border-radius: 1.25rem;
+  background: var(--color-surface);
+}
+.bolt-setting-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 800;
+}
+.bolt-code-box {
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.875rem;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-mono);
+  font-size: 16px;
+  line-height: 1.35;
+  word-break: break-all;
+  resize: none;
+}
+.bolt-code-box:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+.bolt-code-box[aria-invalid="true"] {
+  border-color: #e5383b;
+}
+.bolt-setting-error {
+  color: #ff8a8c;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bolt-switch,
+  .bolt-switch::after {
+    transition: none;
+  }
+}
