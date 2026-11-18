@@ -74,6 +74,18 @@ Tutto viaggia nei link, niente account:
 - **Sfida libera**: dalla sezione Sfide scegli un livello già completato; parte il link con il tuo miglior risultato su quel livello (salvato da questa versione in poi).
 - Ogni link viene validato: controllo d'integrità, valori plausibili e griglia uguale a quella del livello dichiarato. Logica in `src/game/challenges.ts`, test in `tests/challenges.test.ts`.
 
+## Statistiche anonime e Tracker Razvan
+**Nel gioco** (`src/game/telemetry.ts`, collegamento in `telemetry-web.ts`):
+- ID anonimo casuale in localStorage (`bolt-anon-id`, separato dal salvataggio). Niente nomi, email, IP, cookie, tracker esterni o pubblicità: solo eventi di gioco con proprietà ammesse da un elenco chiuso; i testi liberi vengono ripuliti (email e numeri di telefono rimossi).
+- Eventi: `app_open` (fonte: utm_source/medium/campaign, invito ?f/?c/?d, dominio di provenienza o "diretto"; dispositivo, browser, lingua, app installata), `session_end`, `level_start/end/quit`, `daily_played`, `rush_end`, `duel_created/accepted/finished/rematch`, `challenge_shared/opened`, `invite_shared`, `friend_invite_opened`, `shop_purchase`, `pwa_installed`, `js_error`, `perf` (caricamento e fps medio), `feedback`, `pref`. Ogni riga porta la versione del gioco (commit della build).
+- Invio a lotti ogni 20 s e alla chiusura (fetch keepalive), coda offline (max 300 eventi), nuovi tentativi con attesa crescente; se Supabase non risponde il gioco non se ne accorge.
+- Dopo il livello 5, una volta: "Ti piace BOLT?" (1-5 stelle + commento facoltativo, max 200 caratteri). Ogni tanto, solo in home: una domanda veloce (capitolo preferito, livelli o duelli, quando gioca, comprerebbe extra, come ha conosciuto BOLT, che nome darebbe al gioco). Regole in `src/game/prompts.ts`.
+- Impostazioni → "Statistiche anonime": spiegazione, interruttore e "Cancella i miei dati". Gli eventi oltre 12 mesi si cancellano da soli.
+
+**Supabase** (`supabase/tracker.sql`, da incollare una volta nel SQL Editor): tabelle `events` e `roadmap`, RLS (la chiave pubblica può solo inserire eventi validi; lettura degli eventi e roadmap solo per le email in `tracker_admins`), funzioni `tracker_*` per le metriche, `forget_player`, pulizia automatica con pg_cron. L'email dell'amministratore non è nel repository.
+
+**Tracker Razvan** (`dev/index.html`, `src/tracker/`): https://kiritsu01.github.io/Bolt/dev/ — app separata e installabile (manifest e icona propri, scope `/Bolt/dev/`, service worker proprio; quello del gioco ignora `/dev/`), non linkata dal gioco, `noindex`. Accesso con link o codice via email (solo utenti già creati), sessione ricordata. Schede Oggi · Giocatori · Crescita · Sviluppo · Idee, periodo Oggi/7/30 giorni, grafici SVG fatti a mano. I rilasci (`dev/releases.json`) e i dati della build (`dev/build-info.json`: versione, numero di test, peso) sono generati alla build dai commit. Calcoli in `src/tracker/metrics.ts`, test in `tests/tracker-metrics.test.ts`.
+
 ## Pubblicità
 Tutto passa da `showRewardedAd()` in `src/game/ads.ts`: oggi mostra un annuncio finto di 3 secondi. Per collegare un circuito vero basta sostituire il corpo della funzione, rispettando il contratto scritto nel file (Promise che si risolve a `true` solo se l'annuncio è stato visto fino in fondo, mai rifiutata).
 
@@ -87,6 +99,7 @@ I progressi stanno in `localStorage` alla chiave `bolt-save-v4` (formato version
 - `src/game/` logica, generatore dei livelli, disegno su canvas, audio, testi it/en, salvataggi.
 - `src/components/bolt-app.tsx` interfaccia: home, livelli, partita, risultati.
 - `src/game/chapters.ts` capitoli; `cosmetics.ts` temi e stili di freccia; `hints.ts` scorta indizi; `share.ts` testo da condividere; `friends.ts` link amico, confronto e classifica; `challenges.ts` sfide ricevute, esito e bilancio; `ads.ts` pubblicità; `pwa.ts` service worker e invito all'installazione.
+- `src/tracker/` app Tracker Razvan; `supabase/tracker.sql` tabelle, sicurezza e metriche.
 - `src/effects.css` effetti aggiunti: scritta delle combo (x5, x10...), coriandoli, ingresso dei pannelli.
 - `src/features.css` stili delle novità (mappa, presentazione capitoli, negozio, indizi, invito Home).
 - `tests/` test automatici (`npm test`).

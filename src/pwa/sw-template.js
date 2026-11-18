@@ -27,6 +27,9 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  // La pagina /dev/ (Tracker) è un'app a sé: questo service worker non la gestisce.
+  if (url.pathname.includes("/dev/") || /\/assets\/tracker-/.test(url.pathname)) return;
+  if (req.referrer && new URL(req.referrer).pathname.includes("/dev/")) return;
 
   // Pagina (anche con ?c=CODICE): prima la rete, se manca si usa la copia salvata.
   if (req.mode === "navigate") {

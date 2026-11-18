@@ -37,6 +37,9 @@ import { celebrationFor, rushCelebration, type Celebration } from "@/game/celebr
 import { HAPTIC, vibrate } from "@/game/haptics";
 import { ghostBurst, setGhostHeat } from "@/game/ghosts";
 import { GhostField } from "@/components/ghost-field";
+import { countFrame, forgetMyData, setTelemetryEnabled, takeFps, telemetryEnabled, track } from "@/game/telemetry-web";
+import { QuickQuestion, RatingSheet } from "@/components/prompts-ui";
+import { PROMPT_KEY, markAsked, nextQuestion, parsePromptState, ratingDue, type PromptState, type QuestionId } from "@/game/prompts";
 import { SettingsPage } from "@/components/settings-page";
 import { iosHomeTipDue, iosHomeTipSeen, markIosHomeTipSeen } from "@/game/pwa-tip";
 import { DuelBar, DuelBlock, DuelCountdown, DuelLobby, ForfeitBanner } from "@/components/duel-ui";
@@ -224,6 +227,16 @@ export function BoltApp({
   const duelSentRef = useRef("");
   /** Aperto da un link di duello: niente pannello di benvenuto sopra la schermata del duello. */
   const [arrivalDuel, setArrivalDuel] = useState(false);
+  // Domande ai giocatori (anonime): valutazione dopo il livello 5, domande veloci ogni tanto.
+  const [prompts, setPrompts] = useState<PromptState>(() => {
+    const st = parsePromptState(readLocal(PROMPT_KEY));
+    const next = { ...st, opens: st.opens + 1 };
+    writeLocal(PROMPT_KEY, JSON.stringify(next));
+    return next;
+  });
+  const [telemetryOn, setTelemetryOn] = useState(() => telemetryEnabled());
+  const [ratingOpen, setRatingOpen] = useState(false);
+  const [question, setQuestion] = useState<QuestionId | null>(null);
   /** Invito iPhone "Aggiungi alla schermata Home" (una volta sola, dopo il livello 5). */
   const [iosTip, setIosTip] = useState(false);
   const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
@@ -380,6 +393,7 @@ export function BoltApp({
       friendDoneRef.current = true;
       const tl = copy[loaded.lang];
       const incoming = decodeFriend(friendCode);
+      if (incoming) track("friend_invite_opened");
       if (!incoming) setToast(tl.friendBad);
       else {
         const merged = mergeFriend(loaded.friends, incoming, loaded.playerId);
@@ -406,6 +420,7 @@ export function BoltApp({
     const fromOther = linkChallenge && linkChallenge.from.id !== loaded.playerId ? linkChallenge : null;
     if (arrivalFriend || fromOther) setArrival({ friend: arrivalFriend, challenge: fromOther });
     // Sfida dal link: finisce nell'elenco "Da giocare" (senza doppioni, massimo 30).
+    if (linkChallenge) track("challenge_opened", { level: linkChallenge.level, kind: linkChallenge.level ? "livello" : "oggi" });
     if (linkChallenge) {
       const list = addChallenge(loaded.challenges, linkChallenge, loaded.playerId);
       if (list !== loaded.challenges) {
@@ -513,6 +528,8 @@ export function BoltApp({
         ? 3
         : starsFor(sim.mistakes, sim.hintsUsed, sim.undos);
     const ms = Math.max(500, Math.round((sim.finishedAt || performance.now()) - sim.startedAt));
+    trackPlayEnd(sim, "level_end", { stars, ms });
+    if (sim.mode === "daily") track("daily_played", { mistakes: sim.mistakes, ms, stars });
     // Sfida ricevuta appena giocata: dall'elenco, oppure (Sfida di oggi) quella di oggi ancora da fare.
     const played =
       sim.mode === "challenge" && activeKey
@@ -583,6 +600,7 @@ export function BoltApp({
   };
 
   overRef.current = (sim) => {
+    trackPlayEnd(sim, "rush_end", { score: sim.score });
     setResult({
       stars: 0,
       mistakes: sim.mistakes,
@@ -647,6 +665,17 @@ export function BoltApp({
     applyTheme(save.theme);
   }, [save.theme]);
 
+  // Valutazione e domanda veloce: solo in home, mai sopra altri pannelli, mai durante la partita.
+  useEffect(() => {
+    if (!saveReady || phase !== "home" || iosTip || ratingOpen) return;
+    if (iosHomeTipDue({ ios: isIos(), standalone: isStandalone(), unlocked: save.unlocked, seen: iosHomeTipSeen() })) return;
+    if (ratingDue(prompts, save.unlocked, telemetryOn)) {
+      setRatingOpen(true);
+      return;
+    }
+    if (!question) setQuestion(nextQuestion(prompts, Date.now(), telemetryOn, save.unlocked));
+  }, [saveReady, phase, iosTip, ratingOpen, prompts, save.unlocked, telemetryOn, question]);
+
   useEffect(() => {
     if (!saveReady || phase !== "home" || iosTip) return;
     if (!iosHomeTipDue({ ios: isIos(), standalone: isStandalone(), unlocked: save.unlocked, seen: iosHomeTipSeen() })) return;
@@ -675,6 +704,12 @@ export function BoltApp({
       return;
     }
     if (v.phase === "finished" && v.result && modalRef.current !== "duel") {
+      track("duel_finished", {
+        result: v.result.winner === "me" ? "vinto" : "perso",
+        forfeit: v.result.forfeit,
+        round: v.round,
+        ms: v.result.myMs ?? undefined,
+      });
       const sim = simRef.current;
       if (sim) sim.resolved = true;
       setModal("duel");
@@ -718,6 +753,7 @@ export function BoltApp({
           });
           layoutBoard(sim, fit.w, fit.h);
           drawBoard(fit.ctx, sim, paletteRef.current, now, fit.w, fit.h);
+          if (!sim.resolved && !sim.over) countFrame(now);
           // Lo sfondo sente la combo: le frecce fantasma accelerano e si scaldano.
           setGhostHeat(sim.heat, now);
         }
@@ -753,6 +789,10 @@ export function BoltApp({
 
   function begin(mode: Mode, spec: Spec, level: number, challengeKey: string | null = null) {
     unlockAudio();
+    const prev = simRef.current;
+    if (prev && phase === "play" && !prev.resolved && !prev.over && prev.mode !== "duel") trackPlayEnd(prev, "level_quit");
+    takeFps(performance.now());
+    if (mode !== "duel") track("level_start", { mode, level: mode === "campaign" ? level : undefined, chapter: mode === "campaign" ? chapterIndex(level) + 1 : undefined });
     bestAtStartRef.current = save.bestRush;
     setCelebration(null);
     setStarsDone(false);
@@ -796,9 +836,26 @@ export function BoltApp({
 
   function goHome() {
     playUi();
+    const cur = simRef.current;
+    if (cur && phase === "play" && !cur.resolved && !cur.over && cur.mode !== "duel") trackPlayEnd(cur, "level_quit");
     endDuel();
     setPhase("home");
     setModal(null);
+  }
+
+  /** Fine di una partita per la telemetria: dati di gioco anonimi + fps medio. */
+  function trackPlayEnd(sim: Sim, name: "level_end" | "level_quit" | "rush_end", extra: Record<string, unknown> = {}) {
+    const fps = takeFps(performance.now());
+    track(name, {
+      mode: sim.mode,
+      level: sim.mode === "campaign" ? sim.level : undefined,
+      chapter: sim.mode === "campaign" ? chapterIndex(sim.level) + 1 : undefined,
+      mistakes: sim.mistakes,
+      hints: sim.hintsUsed,
+      ms: name === "level_quit" ? Math.round(performance.now() - sim.startedAt) : undefined,
+      ...extra,
+    });
+    if (fps) track("perf", { kind: "fps", fps: Math.round(fps * 10) / 10, mode: sim.mode });
   }
 
   // --- Duello -----------------------------------------------------------------
@@ -865,6 +922,7 @@ export function BoltApp({
       const inv: DuelInvite = { room: newRoomId(), createdAt: Date.now(), hostId: save.playerId, hostName: name };
       setDuelInvite(inv);
       shareDuel(inv, name);
+      track("duel_created");
       void openSession("host", inv, name).then((session) => session?.host());
     });
   }
@@ -874,6 +932,7 @@ export function BoltApp({
     if (!duelInvite) return;
     unlockAudio();
     playUi();
+    track("duel_accepted");
     withName((name) => {
       void openSession("guest", duelInvite, name).then((session) => session?.accept());
     });
@@ -936,6 +995,7 @@ export function BoltApp({
   }
 
   async function shareNow(kind: "level" | "daily" | "rush" | "challenge", name?: string) {
+    track("challenge_shared", { kind, level: kind === "level" ? simRef.current?.level : undefined });
     unlockAudio();
     const sim = simRef.current;
     const spec = sim?.spec;
@@ -994,6 +1054,7 @@ export function BoltApp({
   }
 
   function invite() {
+    track("invite_shared");
     withName((name) => {
       const me = meAsFriend(name);
       const url = `${baseUrl()}?f=${encodeFriend(me)}`;
@@ -1042,6 +1103,20 @@ export function BoltApp({
       writeSave(next);
       return next;
     });
+  }
+
+  function savePrompts(next: PromptState) {
+    setPrompts(next);
+    writeLocal(PROMPT_KEY, JSON.stringify(next));
+  }
+
+  function answerQuestion(id: QuestionId, answer: string | null) {
+    if (answer !== null) {
+      track("pref", { question: id, answer });
+      setToast(t.quickThanks);
+    }
+    savePrompts(markAsked(prompts, id, Date.now()));
+    setQuestion(null);
   }
 
   function openSettings() {
@@ -1152,6 +1227,7 @@ export function BoltApp({
     }
     playUi();
     if (!owned) {
+      track("shop_purchase", kind === "theme" ? { theme: id } : { arrow: id });
       setToast(t.bought);
       playBuy();
     }
@@ -1302,6 +1378,10 @@ export function BoltApp({
             <Stat icon={<Star className="size-4 text-accent" />} label={t.stars} value={totalStars} />
             <Stat icon={<Timer className="size-4 text-accent" />} label={t.record} value={save.bestRush} />
           </div>
+
+          {question && !ratingOpen ? (
+            <QuickQuestion t={t} id={question} onAnswer={(a) => answerQuestion(question, a)} onSkip={() => answerQuestion(question, null)} />
+          ) : null}
 
           {homeNudge ? (
             <button
@@ -1794,6 +1874,16 @@ export function BoltApp({
           onToggleSound={toggleSound}
           onImport={importSave}
           onToast={setToast}
+          telemetryOn={telemetryOn}
+          onToggleTelemetry={() => {
+            const next = !telemetryOn;
+            setTelemetryEnabled(next);
+            setTelemetryOn(next);
+          }}
+          onForget={async () => {
+            const ok = await forgetMyData();
+            setToast(ok ? t.privacyForgotten : t.privacyForgetFail);
+          }}
         />
       ) : null}
 
@@ -2183,6 +2273,7 @@ export function BoltApp({
                             vibrate(HAPTIC.tapHot);
                             setStrike(Date.now());
                             duelRef.current?.rematch();
+                            track("duel_rematch");
                           }}
                           className={`flex h-12 items-center justify-center gap-2 rounded-2xl bg-accent font-display font-extrabold text-accent-ink disabled:opacity-40 ${duelView.result.winner !== "me" && !duelView.opponentGone ? "bolt-rematch-call" : ""}`}
                         >
@@ -2402,6 +2493,22 @@ export function BoltApp({
             })()}
           </div>
         </div>
+      ) : null}
+
+      {ratingOpen && phase === "home" && !arrival && !shareSheet && !askName ? (
+        <RatingSheet
+          t={t}
+          onSend={(rating, comment) => {
+            track("feedback", { rating, comment: comment || undefined });
+            savePrompts({ ...prompts, ratingDone: true });
+            setRatingOpen(false);
+            setToast(t.rateThanks);
+          }}
+          onLater={() => {
+            savePrompts({ ...prompts, ratingDone: true });
+            setRatingOpen(false);
+          }}
+        />
       ) : null}
 
       {iosTip && phase === "home" && !arrival && !shareSheet && !askName ? (
@@ -2913,4 +3020,20 @@ function emptyDuelView(role: "host" | "guest"): DuelView {
 function guestPreview(inv: DuelInvite): DuelView {
   const expired = Date.now() - inv.createdAt > 10 * 60_000;
   return { ...emptyDuelView("guest"), phase: expired ? "expired" : "invited", opponent: { id: inv.hostId, name: inv.hostName } };
+}
+
+function readLocal(key: string) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeLocal(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* modalità privata */
+  }
 }

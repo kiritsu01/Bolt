@@ -121,6 +121,70 @@ function png(w, h, rgba) {
   ]);
 }
 
+/**
+ * Icona del Tracker (app separata, /dev/): fondo viola-rosa e tre barre di un grafico,
+ * l'ultima gialla. Spazio di disegno 64x64 come l'SVG dell'app.
+ */
+function renderTracker(px, opt = {}) {
+  const SS = 4;
+  const scale = opt.maskable ? 0.74 : 1;
+  const off = (64 - 64 * scale) / 2;
+  const A = [0x7c, 0x5c, 0xff];
+  const B = [0xff, 0x5c, 0xa8];
+  const WHITE = [0xff, 0xff, 0xff];
+  const GOLD = [0xff, 0xd1, 0x66];
+  const bars = [
+    [14, 34, 8, 16, WHITE],
+    [28, 24, 8, 26, WHITE],
+    [42, 14, 8, 36, GOLD],
+  ];
+  const inBar = (u, v, [x, y, w, h]) => {
+    const r = 3;
+    const cx = Math.min(Math.max(u, x + r), x + w - r);
+    const cy = Math.min(Math.max(v, y + r), y + h - r);
+    return u >= x && u <= x + w && v >= y && v <= y + h && (u - cx) ** 2 + (v - cy) ** 2 <= r * r;
+  };
+  const rgba = Buffer.alloc(px * px * 4);
+  for (let y = 0; y < px; y++) {
+    for (let x = 0; x < px; x++) {
+      let r = 0, g = 0, b = 0, a = 0;
+      for (let sy = 0; sy < SS; sy++) {
+        for (let sx = 0; sx < SS; sx++) {
+          const u = ((x + (sx + 0.5) / SS) / px) * 64;
+          const v = ((y + (sy + 0.5) / SS) / px) * 64;
+          if (opt.rounded && !inRoundRect(u, v, 64, 18)) continue;
+          const k = Math.min(1, Math.max(0, (u + v) / 128));
+          let c = [0, 1, 2].map((i) => A[i] + (B[i] - A[i]) * k);
+          const lu = (u - off) / scale;
+          const lv = (v - off) / scale;
+          for (const bar of bars) if (inBar(lu, lv, bar)) c = bar[4];
+          r += c[0]; g += c[1]; b += c[2]; a += 255;
+        }
+      }
+      const n = SS * SS;
+      const i = (y * px + x) * 4;
+      const cover = a / 255;
+      rgba[i] = cover ? Math.round(r / cover) : 0;
+      rgba[i + 1] = cover ? Math.round(g / cover) : 0;
+      rgba[i + 2] = cover ? Math.round(b / cover) : 0;
+      rgba[i + 3] = Math.round(a / n);
+    }
+  }
+  return png(px, px, rgba);
+}
+
+const DEV_OUT = resolve(OUT, "../dev/icons");
+mkdirSync(DEV_OUT, { recursive: true });
+for (const [name, buf] of Object.entries({
+  "tracker-192.png": renderTracker(192, { rounded: true }),
+  "tracker-512.png": renderTracker(512, { rounded: true }),
+  "tracker-maskable.png": renderTracker(512, { maskable: true }),
+  "tracker-apple.png": renderTracker(180, {}),
+})) {
+  writeFileSync(resolve(DEV_OUT, name), buf);
+  console.log(`public/dev/icons/${name}  ${buf.length} byte`);
+}
+
 mkdirSync(OUT, { recursive: true });
 const files = {
   "icon-192.png": render(192, { rounded: true }),

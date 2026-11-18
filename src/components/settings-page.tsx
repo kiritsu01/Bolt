@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Check, ChevronLeft, Copy, Download, Languages, Upload, Volume2, VolumeX } from "lucide-react";
+import { Check, ChevronLeft, Copy, Download, Languages, ShieldCheck, Trash2, Upload, Volume2, VolumeX } from "lucide-react";
 import { backupSummary, decodeBackup, encodeBackup } from "@/game/backup";
 import type { copy, Lang } from "@/game/i18n";
 import type { Save } from "@/game/save";
@@ -15,6 +15,9 @@ export function SettingsPage({
   onToggleSound,
   onImport,
   onToast,
+  telemetryOn,
+  onToggleTelemetry,
+  onForget,
 }: {
   t: T;
   save: Save;
@@ -23,7 +26,11 @@ export function SettingsPage({
   onToggleSound: () => void;
   onImport: (save: Save) => void;
   onToast: (msg: string) => void;
+  telemetryOn: boolean;
+  onToggleTelemetry: () => void;
+  onForget: () => Promise<void>;
 }) {
+  const [forgetOpen, setForgetOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [pasted, setPasted] = useState("");
   const [bad, setBad] = useState(false);
@@ -153,7 +160,49 @@ export function SettingsPage({
             {t.importAction}
           </button>
         </section>
+        <section className="bolt-setting-card">
+          <h3 className="bolt-setting-title">
+            <ShieldCheck className="size-5 text-accent" />
+            {t.privacyTitle}
+          </h3>
+          <p className="text-sm text-pretty text-muted">{t.privacyText}</p>
+          <button type="button" className="bolt-setting-row" onClick={onToggleTelemetry} aria-pressed={telemetryOn}>
+            <span className="flex-1">{t.privacyToggle}</span>
+            <span className={telemetryOn ? "bolt-switch is-on" : "bolt-switch"} aria-hidden="true" />
+            <span className="sr-only">{telemetryOn ? t.on : t.off}</span>
+          </button>
+          <button type="button" onClick={() => setForgetOpen(true)} className="h-11 w-full text-sm font-semibold text-muted">
+            <span className="inline-flex items-center gap-2">
+              <Trash2 className="size-4" />
+              {t.privacyForget}
+            </span>
+          </button>
+        </section>
       </div>
+
+      {forgetOpen ? (
+        <div className="scrim bolt-sheet-wrap bolt-sheet-top" onClick={(e) => e.target === e.currentTarget && setForgetOpen(false)}>
+          <div className="bolt-rise bolt-sheet rounded-card bg-surface p-6 text-center" role="alertdialog" aria-modal="true" aria-label={t.privacyForgetConfirm}>
+            <p className="font-display text-2xl font-extrabold">{t.privacyForgetConfirm}</p>
+            <p className="mt-2 text-sm text-pretty text-muted">{t.privacyForgetText}</p>
+            <div className="mt-5 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setForgetOpen(false);
+                  void onForget();
+                }}
+                className="flex h-12 items-center justify-center rounded-2xl bg-accent font-display font-extrabold text-accent-ink"
+              >
+                {t.privacyForgetDo}
+              </button>
+              <button type="button" onClick={() => setForgetOpen(false)} className="h-11 text-sm font-semibold text-muted">
+                {t.cancel}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {pending && summary ? (
         <div className="scrim bolt-sheet-wrap bolt-sheet-top" onClick={(e) => e.target === e.currentTarget && setPending(null)}>
