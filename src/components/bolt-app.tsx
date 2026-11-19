@@ -70,7 +70,7 @@ import { loadSave, noteDay, writeSave, type Save, defaultSave } from "@/game/sav
 import { freshSim, hintShowing, step, tapCell, useHint, useUndo, type Mode, type Sim } from "@/game/sim";
 import { hintsLeft, msUntilMidnight, spendHint } from "@/game/hints";
 import { showRewardedAd } from "@/game/ads";
-import { installMode, isIos, isStandalone, onPwaChange, promptInstall } from "@/game/pwa";
+import { installMode, isIos, isStandalone, onPwaChange, promptInstall, setUpdateSafe } from "@/game/pwa";
 import {
   MAX_NAME,
   cleanName,
@@ -312,6 +312,10 @@ export function BoltApp({
   const t = copy[lang];
   // Si ridisegna a mezzanotte (e al ritorno sulla pagina) per ricaricare gli indizi e cambiare la Sfida di oggi.
   const [, setDayTick] = useState(0);
+  // Aggiornamento automatico: la versione nuova si carica solo fuori da livelli e duelli.
+  useEffect(() => {
+    setUpdateSafe(phase !== "play" && phase !== "duel" && modal === null);
+  }, [phase, modal]);
   useEffect(() => {
     let id = 0;
     const arm = () => {

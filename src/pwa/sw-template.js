@@ -34,7 +34,8 @@ self.addEventListener("fetch", (event) => {
   // Pagina (anche con ?c=CODICE): prima la rete, se manca si usa la copia salvata.
   if (req.mode === "navigate") {
     event.respondWith(
-      fetch(req)
+      // "no-cache": chiede sempre al server se la pagina è cambiata, così una versione nuova arriva subito.
+      fetch(req.url, { cache: "no-cache", credentials: "same-origin" })
         .then((res) => {
           if (res.ok) {
             const copy = res.clone();
