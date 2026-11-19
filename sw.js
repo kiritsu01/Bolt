@@ -1,7 +1,7 @@
 /* Service worker di BOLT: fa funzionare il gioco anche offline.
  * Generato da vite.config.ts in fase di build (npm run build), che inserisce
  * l'impronta della build e l'elenco dei file da salvare. */
-const CACHE = "bolt-f1b2bca77fc0";
+const CACHE = "bolt-cf89769b4669";
 const PRECACHE = [
   "./",
   "./assets/bricolage-grotesque-latin-600-normal-Bw0J83-2.woff",
@@ -10,8 +10,8 @@ const PRECACHE = [
   "./assets/bricolage-grotesque-latin-800-normal-J50vIsBe.woff2",
   "./assets/config-53O0EQUW.js",
   "./assets/config-BZGy4QWe.css",
+  "./assets/index-B9jJZba0.js",
   "./assets/index-CON1PtNt.css",
-  "./assets/index-CyG5-rDs.js",
   "./assets/outfit-latin-400-normal-BGsTXAXT.woff2",
   "./assets/outfit-latin-400-normal-DMwTpYkH.woff",
   "./assets/outfit-latin-500-normal-ClnHRwRh.woff",
@@ -56,7 +56,8 @@ self.addEventListener("fetch", (event) => {
   // Pagina (anche con ?c=CODICE): prima la rete, se manca si usa la copia salvata.
   if (req.mode === "navigate") {
     event.respondWith(
-      fetch(req)
+      // "no-cache": chiede sempre al server se la pagina è cambiata, così una versione nuova arriva subito.
+      fetch(req.url, { cache: "no-cache", credentials: "same-origin" })
         .then((res) => {
           if (res.ok) {
             const copy = res.clone();
